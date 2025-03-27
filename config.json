@@ -1,3 +1,5 @@
 {
-    "input_folder": "C:/Users/valen/OneDrive - IMT MINES ALES/Ecole/Informatique/TD/Robot2D_v0_ISOARD_VALENTIN"
+    "java_project_folder": "C:/Users/valen/OneDrive - IMT MINES ALES/Ecole/Informatique/TD/Robot2D_v0_ISOARD_VALENTIN",
+    "output_uml_code": "./project_diagram.puml",
+    "output_uml_diagram": "./project_diagram.png"
 }

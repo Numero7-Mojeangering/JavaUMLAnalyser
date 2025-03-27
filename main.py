@@ -3,6 +3,7 @@ import os
 import javalang
 import logging
 from typing import List, Dict, Tuple, Optional
+from plantuml import PlantUML
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
@@ -12,7 +13,7 @@ class JavaClass:
                  associations: Optional[List[str]] = None, dependencies: Optional[List[str]] = None,
                  aggregations: Optional[List[str]] = None, compositions: Optional[List[str]] = None,
                  bidirectional_associations: Optional[List[str]] = None, reflexive_associations: Optional[List[str]] = None,
-                 enums: Optional[List[str]] = None):
+                 enums: Optional[List[str]] = None, external_inheritance: Optional[List[str]] = None):
         self.name = name
         self.package = package
         self.attributes = attributes
@@ -26,6 +27,7 @@ class JavaClass:
         self.bidirectional_associations = bidirectional_associations or []
         self.reflexive_associations = reflexive_associations or []
         self.enums = enums or []
+        self.external_inheritance = external_inheritance or []
 
 class JavaProjectParser:
     def __init__(self, project_path: str):
@@ -50,7 +52,9 @@ class JavaProjectParser:
                 for _, node in tree:
                     if isinstance(node, javalang.tree.ClassDeclaration):
                         attributes, methods = self._extract_members(node)
-                        java_class = JavaClass(node.name, package, attributes, methods)
+                        extends = self._extract_extends(node)
+                        implements = self._extract_implements(node)
+                        java_class = JavaClass(node.name, package, attributes, methods, extends, implements)
                         self.classes[java_class.name] = java_class
         except (javalang.parser.JavaSyntaxError, FileNotFoundError) as e:
             logging.error(f"Failed to parse {file_path}: {e}")
@@ -64,7 +68,8 @@ class JavaProjectParser:
                         java_class = self.classes[node.name]
                         (java_class.associations, java_class.dependencies, java_class.aggregations, 
                          java_class.compositions, java_class.bidirectional_associations, 
-                         java_class.reflexive_associations, java_class.enums) = self._extract_relationships(node)
+                         java_class.reflexive_associations, java_class.enums, 
+                         java_class.external_inheritance) = self._extract_relationships(node)
         except (javalang.parser.JavaSyntaxError, FileNotFoundError) as e:
             logging.error(f"Failed to parse {file_path}: {e}")
 
@@ -75,7 +80,6 @@ class JavaProjectParser:
         return "default"
 
     def _extract_members(self, class_node: javalang.tree.ClassDeclaration) -> Tuple[Dict[str, str], Dict[str, str]]:
-        
         attributes = [f"{class_node.name} {declarator.name}" for member in class_node.body
                       if isinstance(member, javalang.tree.FieldDeclaration)
                       for declarator in member.declarators]
@@ -85,8 +89,19 @@ class JavaProjectParser:
         
         return attributes, methods
 
-    def _extract_relationships(self, class_node: javalang.tree.ClassDeclaration) -> Tuple[List[str], List[str], List[str], List[str], List[str], List[str], List[str]]:
-        associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums = [], [], [], [], [], [], []
+    def _extract_extends(self, class_node: javalang.tree.ClassDeclaration) -> Optional[str]:
+        """ Extracts the parent class the current class extends. """
+        if class_node.extends:
+            return class_node.extends.name
+        return None
+
+    def _extract_implements(self, class_node: javalang.tree.ClassDeclaration) -> List[str]:
+        """ Extracts the interfaces the class implements. """
+        return [iface.name for iface in class_node.implements] if class_node.implements else []
+
+    def _extract_relationships(self, class_node: javalang.tree.ClassDeclaration) -> Tuple[List[str], List[str], List[str], List[str], List[str], List[str], List[str], List[str]]:
+        associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums, external_inheritance = [], [], [], [], [], [], [], []
+        
         for member in class_node.body:
             if isinstance(member, javalang.tree.FieldDeclaration):
                 field_type = member.type.name if hasattr(member.type, 'name') else None
@@ -102,6 +117,7 @@ class JavaProjectParser:
                         reflexive_associations.append(field_type)
                 if field_type and field_type.isupper():
                     enums.append(field_type)
+
             if isinstance(member, javalang.tree.MethodDeclaration):
                 for statement in member.body or []:
                     if isinstance(statement, javalang.tree.StatementExpression) and isinstance(statement.expression, javalang.tree.MethodInvocation) and statement.expression.qualifier:
@@ -110,7 +126,12 @@ class JavaProjectParser:
                         for declarator in statement.declarators:
                             if isinstance(declarator.initializer, javalang.tree.ClassCreator) and declarator.initializer.type.name:
                                 dependencies.append(declarator.initializer.type.name)
-        return associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums
+
+        # Track external inheritance (e.g., from external packages)
+        if class_node.extends:
+            external_inheritance.append(class_node.extends.name)
+        
+        return associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums, external_inheritance
 
 
 class PlantUMLGenerator:
@@ -159,6 +180,39 @@ class PlantUMLGenerator:
         return "\n".join(uml)
 
 
+class PlantUMLDiagram:
+    def __init__(self, plantuml_code: str, output_file: str, server_url: str = 'http://www.plantuml.com/plantuml/img/'):
+        """
+        Initializes the PlantUMLDiagram instance.
+
+        :param plantuml_code: The PlantUML code as a string.
+        :param output_file: The desired output file name (e.g., 'diagram.png').
+        :param server_url: The URL of the PlantUML server (default is the public server).
+        """
+        self.plantuml_code = plantuml_code
+        self.output_file = output_file
+        self.server_url = server_url
+        self.plantuml = PlantUML(url=self.server_url)
+
+    def generate_diagram(self):
+        """
+        Generates the UML diagram by sending the PlantUML code to the server.
+        Saves the diagram to the specified output file.
+        """
+        try:
+            # Process the PlantUML code and retrieve the diagram
+            diagram_data = self.plantuml.processes(self.plantuml_code)
+
+            # Ensure the output directory exists
+            os.makedirs(os.path.dirname(self.output_file), exist_ok=True)
+
+            # Write the diagram data to the output file
+            with open(self.output_file, 'wb') as file:
+                file.write(diagram_data)
+            print(f"Diagram successfully generated and saved to {self.output_file}")
+        except Exception as e:
+            print(f"An error occurred while generating the diagram: {e}")
+
 class ConfigLoader:
     def __init__(self, config_file_path):
         self.config_file_path = config_file_path
@@ -175,37 +229,48 @@ class ConfigLoader:
             print(f"Error loading configuration: {e}")
             return {}
 
-    def get_input_folder(self):
+    def get_project_folder(self):
         """
         Returns the input folder from the loaded configuration.
         """
-        return self.config.get("input_folder", "./")
+        return self.config.get("java_project_folder", "./")
 
-    def get_output_uml(self):
+    def get_output_uml_code(self):
         """
-        Returns the output UML file path from the loaded configuration.
+        Returns the output UML RAW file path from the loaded configuration.
         """
-        return self.config.get("output_uml", "project_diagram.puml")
+        return self.config.get("output_uml_code", "project_diagram.puml")
+    
+    def get_output_uml_diagram(self):
+        """
+        Returns the output UML PNG file path from the loaded configuration.
+        """
+        return self.config.get("output_uml_diagram", "project_diagram.png")
 
 
 def main() -> None:
     # Load configuration
     config_loader = ConfigLoader("config.json")
-    input_folder = config_loader.get_input_folder()
-    output_uml = config_loader.get_output_uml()
+    project_folder = config_loader.get_project_folder()
+    output_uml = config_loader.get_output_uml_code()
+    output_diagram = config_loader.get_output_uml_diagram()
 
-    project_directory = input_folder
-    parser = JavaProjectParser(project_directory)
+    parser = JavaProjectParser(project_folder)
     parser.parse()
 
     generator = PlantUMLGenerator(parser.classes)
     plantuml_code = generator.generate()
 
-    output_file = output_uml
-    with open(output_file, "w", encoding="utf-8") as file:
+    with open(output_uml, "w", encoding="utf-8") as file:
         file.write(plantuml_code)
+
+    # Create an instance of PlantUMLDiagram
+    diagram = PlantUMLDiagram(plantuml_code=plantuml_code, output_file=output_diagram)
+
+    # Generate the diagram
+    diagram.generate_diagram()
     
-    logging.info(f"PlantUML diagram saved to {output_file}")
+    logging.info(f"PlantUML diagram saved to {output_diagram}")
 
 
 if __name__ == "__main__":

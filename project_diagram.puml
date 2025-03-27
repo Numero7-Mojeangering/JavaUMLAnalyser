@@ -177,6 +177,7 @@ class VueFinal {
   + VueFinal vueX()
   + VueFinal vueY()
 }
+ObjetDynamique <|-- Balle
 Balle -- Couleur
 Couleur -- Random
 Couleur *-- Random
@@ -188,10 +189,14 @@ LeMonde -- Random
 LeMonde ..> Balle
 LeMonde ..> robot
 MaitreDesActions -- Vecteur2D
+ObjetStatique <|-- ObjetDynamique
 ObjetDynamique -- Vecteur2D
 ObjetStatique -- Vecteur2D
+ObjetDynamique <|-- Robot
 Robot -- ArrayList
 Robot -- Vecteur2D
+ObjetStatique <|-- Vue2D
+Application <|-- App
 App -- ClavierPermanent
 App -- LeMondeFX
 App ..> StackPane
@@ -201,13 +206,16 @@ App ..> stage
 App ..> animationTimer
 App ..> gc
 App ..> leMondeFX
+ObjetDessin <|-- BalleFX
 BalleFX -- Balle
 BalleFX ..> gc
+ObjetDessin <|-- LeMondeFX
 LeMondeFX -- LeMonde
 LeMondeFX -- RobotFX
 LeMondeFX -- ArrayList
 ObjetDessin -- Vue2D
 ObjetDessin -- VueFinal
+ObjetDessin <|-- RobotFX
 RobotFX -- Robot
 RobotFX ..> gc
 RobotFX ..> nbBalle
