@@ -6,7 +6,7 @@ This program extracts class relationships from a Java project and generates a UM
 This project was developed with the help of ChatGPT.
 I've stitched together solutions it provided.
 
-![Alt text](https://user-images.githubusercontent.com/yourusername/yourimage.png)
+![Alt text](https://github.com/Numero7-Mojeangering/JavaUMLAnalyser/blob/main/project_diagram.png)
 
 ## Prerequisites:
 1. **Python 3.x**: The program requires Python 3.x to run.
