@@ -7,12 +7,12 @@ from typing import List, Dict, Tuple, Optional
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 class JavaClass:
-    """Represents a Java class with its attributes, methods, and relationships."""
-    def __init__(self, name: str, package: str, attributes: List[str], methods: List[str], 
-                 extends: Optional[str] = None, implements: Optional[List[str]] = None, 
+    def __init__(self, name: str, package: str, attributes: List[str], methods: List[str],
+                 extends: Optional[str] = None, implements: Optional[List[str]] = None,
                  associations: Optional[List[str]] = None, dependencies: Optional[List[str]] = None,
                  aggregations: Optional[List[str]] = None, compositions: Optional[List[str]] = None,
-                 bidirectional_associations: Optional[List[str]] = None, reflexive_associations: Optional[List[str]] = None):
+                 bidirectional_associations: Optional[List[str]] = None, reflexive_associations: Optional[List[str]] = None,
+                 enums: Optional[List[str]] = None):
         self.name = name
         self.package = package
         self.attributes = attributes
@@ -25,43 +25,28 @@ class JavaClass:
         self.compositions = compositions or []
         self.bidirectional_associations = bidirectional_associations or []
         self.reflexive_associations = reflexive_associations or []
-
-    def __str__(self) -> str:
-        return (f"Class: {self.name}, Package: {self.package}, "
-                f"Extends: {self.extends}, Implements: {self.implements}, "
-                f"Associations: {self.associations}, Dependencies: {self.dependencies}, "
-                f"Aggregations: {self.aggregations}, Compositions: {self.compositions}, "
-                f"Bidirectional Associations: {self.bidirectional_associations}, "
-                f"Reflexive Associations: {self.reflexive_associations}")
-
+        self.enums = enums or []
 
 class JavaProjectParser:
-    """Parses a Java project to extract class details."""
     def __init__(self, project_path: str):
         self.project_path = project_path
         self.classes: Dict[str, JavaClass] = {}
 
     def parse(self) -> None:
-        """Parses Java files in two passes to ensure all relationships are detected."""
-        # Pass 1: Discover classes
         for root, _, files in os.walk(self.project_path):
             for file in files:
                 if file.endswith(".java"):
                     self._discover_java_class(os.path.join(root, file))
-        
-        # Pass 2: Extract relationships
         for root, _, files in os.walk(self.project_path):
             for file in files:
                 if file.endswith(".java"):
                     self._extract_relationships_from_file(os.path.join(root, file))
-    
+
     def _discover_java_class(self, file_path: str) -> None:
-        """Discovers class names and basic structure without extracting relationships."""
         try:
             with open(file_path, "r", encoding="utf-8") as file:
                 tree = javalang.parse.parse(file.read())
                 package = self._extract_package(tree)
-
                 for _, node in tree:
                     if isinstance(node, javalang.tree.ClassDeclaration):
                         attributes, methods = self._extract_members(node)
@@ -71,102 +56,58 @@ class JavaProjectParser:
             logging.error(f"Failed to parse {file_path}: {e}")
 
     def _extract_relationships_from_file(self, file_path: str) -> None:
-        """Extracts relationships after all classes have been discovered."""
         try:
             with open(file_path, "r", encoding="utf-8") as file:
                 tree = javalang.parse.parse(file.read())
                 for _, node in tree:
                     if isinstance(node, javalang.tree.ClassDeclaration) and node.name in self.classes:
-                        associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations = self._extract_relationships(node)
                         java_class = self.classes[node.name]
-                        java_class.associations = associations
-                        java_class.dependencies = dependencies
-                        java_class.aggregations = aggregations
-                        java_class.compositions = compositions
-                        java_class.bidirectional_associations = bidirectional_associations
-                        java_class.reflexive_associations = reflexive_associations
-        except (javalang.parser.JavaSyntaxError, FileNotFoundError) as e:
-            logging.error(f"Failed to parse {file_path}: {e}")
-
-    def _parse_java_file(self, file_path: str) -> None:
-        """Parses an individual Java file."""
-        try:
-            with open(file_path, "r", encoding="utf-8") as file:
-                tree = javalang.parse.parse(file.read())
-                package = self._extract_package(tree)
-
-                for _, node in tree:
-                    if isinstance(node, javalang.tree.ClassDeclaration):
-                        attributes, methods = self._extract_members(node)
-                        extends = node.extends.name if node.extends else None
-                        implements = [impl.name for impl in node.implements] if node.implements else []
-                        associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations = self._extract_relationships(node)
-
-                        java_class = JavaClass(node.name, package, attributes, methods, extends, implements, 
-                                               associations, dependencies, aggregations, compositions, 
-                                               bidirectional_associations, reflexive_associations)
-                        self.classes[java_class.name] = java_class
-                        logging.info(f"Parsed: {java_class}")
+                        (java_class.associations, java_class.dependencies, java_class.aggregations, 
+                         java_class.compositions, java_class.bidirectional_associations, 
+                         java_class.reflexive_associations, java_class.enums) = self._extract_relationships(node)
         except (javalang.parser.JavaSyntaxError, FileNotFoundError) as e:
             logging.error(f"Failed to parse {file_path}: {e}")
 
     def _extract_package(self, tree: javalang.tree.CompilationUnit) -> str:
-        """Extracts the package name from a Java file's AST."""
         for _, node in tree:
             if isinstance(node, javalang.tree.PackageDeclaration):
                 return node.name
         return "default"
 
     def _extract_members(self, class_node: javalang.tree.ClassDeclaration) -> Tuple[List[str], List[str]]:
-        """Extracts attributes and methods from a class node."""
         attributes = [declarator.name for member in class_node.body 
                       if isinstance(member, javalang.tree.FieldDeclaration)
                       for declarator in member.declarators]
-        
         methods = [member.name for member in class_node.body 
                    if isinstance(member, javalang.tree.MethodDeclaration)]
-        
         return attributes, methods
 
-    def _extract_relationships(self, class_node: javalang.tree.ClassDeclaration) -> Tuple[List[str], List[str], List[str], List[str], List[str], List[str]]:
-        """Extracts different relationships from a class node."""
-        associations, dependencies, aggregations, compositions = [], [], [], []
-        bidirectional_associations, reflexive_associations = [], []
-
+    def _extract_relationships(self, class_node: javalang.tree.ClassDeclaration) -> Tuple[List[str], List[str], List[str], List[str], List[str], List[str], List[str]]:
+        associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums = [], [], [], [], [], [], []
         for member in class_node.body:
             if isinstance(member, javalang.tree.FieldDeclaration):
                 field_type = member.type.name if hasattr(member.type, 'name') else None
                 if field_type:
-                    # Detect associations
                     if field_type in self.classes:
                         associations.append(field_type)
-
-                    # Detect aggregations and compositions
                     if field_type in {"List", "Set", "Map"} and member.type.arguments:
                         aggregations.append(member.type.arguments[0].type.name)
-
                     for declarator in member.declarators:
                         if declarator.initializer and isinstance(declarator.initializer, javalang.tree.ClassCreator):
                             compositions.append(field_type)
-
-                    # Reflexive associations (self-references)
                     if field_type == class_node.name:
                         reflexive_associations.append(field_type)
-
-            # Detect bidirectional associations
+                if field_type and field_type.isupper():
+                    enums.append(field_type)
             if isinstance(member, javalang.tree.MethodDeclaration):
-                for param in member.parameters:
-                    if hasattr(param.type, 'name'):
-                        dependencies.append(param.type.name)
-
-        # Check for bidirectional associations
-        for assoc in associations:
-            if assoc in self.classes:
-                for other_class in self.classes.values():
-                    if assoc in other_class.associations and class_node.name in other_class.associations:
-                        bidirectional_associations.append(assoc)
-
-        return associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations
+                for statement in member.body or []:
+                    if isinstance(statement, javalang.tree.StatementExpression) and isinstance(statement.expression, javalang.tree.MethodInvocation):
+                        dependencies.append(statement.expression.qualifier)
+                    if isinstance(statement, javalang.tree.LocalVariableDeclaration):
+                        for declarator in statement.declarators:
+                            if isinstance(declarator.initializer, javalang.tree.ClassCreator):
+                                dependencies.append(declarator.initializer.type.name)
+        return associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums
 
 
 class PlantUMLGenerator:

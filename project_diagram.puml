@@ -178,52 +178,40 @@ class VueFinal {
   + vueY()
 }
 Balle -- Couleur
-Balle ..> double
 Couleur -- Random
-Couleur ..> byte
 Couleur *-- Random
 LeMonde -- MaitreDesActions
 LeMonde -- Vue2D
 LeMonde -- Robot
 LeMonde -- ArrayList
 LeMonde -- Random
-LeMonde ..> int
-LeMonde ..> double
-LeMonde ..> ObjetStatique
+LeMonde ..> Balle
+LeMonde ..> robot
+LeMonde ..> 
 MaitreDesActions -- Vecteur2D
-MaitreDesActions ..> Direction
-MaitreDesActions ..> double
 ObjetDynamique -- Vecteur2D
-ObjetDynamique ..> double
-ObjetDynamique ..> Vecteur2D
+ObjetDynamique ..> 
 ObjetStatique -- Vecteur2D
-ObjetStatique ..> double
-ObjetStatique ..> ObjetStatique
 Robot -- ArrayList
 Robot -- Vecteur2D
-Robot ..> double
-Robot ..> Balle
-Robot <--> ArrayList
-Vecteur2D ..> double
-Vecteur2D ..> Vecteur2D
-Vue2D ..> ObjetStatique
-Vue2D ..> double
 App -- ClavierPermanent
 App -- LeMondeFX
-App ..> Stage
-App ..> KeyEvent
-App ..> double
-App ..> String
+App ..> StackPane
+App ..> Scene
+App ..> scene
+App ..> stage
+App ..> animationTimer
+App ..> gc
+App ..> leMondeFX
+App ..> 
 BalleFX -- Balle
-BalleFX ..> boolean
-ClavierPermanent ..> int
-ClavierPermanent ..> boolean
+BalleFX ..> gc
 LeMondeFX -- LeMonde
 LeMondeFX -- RobotFX
 LeMondeFX -- ArrayList
 ObjetDessin -- Vue2D
 ObjetDessin -- VueFinal
 RobotFX -- Robot
-VueFinal ..> int
-VueFinal ..> double
+RobotFX ..> gc
+RobotFX ..> nbBalle
 @enduml
