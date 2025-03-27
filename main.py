@@ -7,7 +7,7 @@ from typing import List, Dict, Tuple, Optional
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 class JavaClass:
-    def __init__(self, name: str, package: str, attributes: List[str], methods: List[str],
+    def __init__(self, name: str, package: str, attributes: Dict[str, str], methods: Dict[str, str],
                  extends: Optional[str] = None, implements: Optional[List[str]] = None,
                  associations: Optional[List[str]] = None, dependencies: Optional[List[str]] = None,
                  aggregations: Optional[List[str]] = None, compositions: Optional[List[str]] = None,
@@ -74,12 +74,15 @@ class JavaProjectParser:
                 return node.name
         return "default"
 
-    def _extract_members(self, class_node: javalang.tree.ClassDeclaration) -> Tuple[List[str], List[str]]:
-        attributes = [declarator.name for member in class_node.body 
+    def _extract_members(self, class_node: javalang.tree.ClassDeclaration) -> Tuple[Dict[str, str], Dict[str, str]]:
+        
+        attributes = [f"{class_node.name} {declarator.name}" for member in class_node.body
                       if isinstance(member, javalang.tree.FieldDeclaration)
                       for declarator in member.declarators]
-        methods = [member.name for member in class_node.body 
+        
+        methods = [f"{class_node.name} {member.name}" for member in class_node.body 
                    if isinstance(member, javalang.tree.MethodDeclaration)]
+        
         return attributes, methods
 
     def _extract_relationships(self, class_node: javalang.tree.ClassDeclaration) -> Tuple[List[str], List[str], List[str], List[str], List[str], List[str], List[str]]:
@@ -87,7 +90,7 @@ class JavaProjectParser:
         for member in class_node.body:
             if isinstance(member, javalang.tree.FieldDeclaration):
                 field_type = member.type.name if hasattr(member.type, 'name') else None
-                if field_type:
+                if field_type and field_type.strip():
                     if field_type in self.classes:
                         associations.append(field_type)
                     if field_type in {"List", "Set", "Map"} and member.type.arguments:
@@ -101,11 +104,11 @@ class JavaProjectParser:
                     enums.append(field_type)
             if isinstance(member, javalang.tree.MethodDeclaration):
                 for statement in member.body or []:
-                    if isinstance(statement, javalang.tree.StatementExpression) and isinstance(statement.expression, javalang.tree.MethodInvocation):
+                    if isinstance(statement, javalang.tree.StatementExpression) and isinstance(statement.expression, javalang.tree.MethodInvocation) and statement.expression.qualifier:
                         dependencies.append(statement.expression.qualifier)
                     if isinstance(statement, javalang.tree.LocalVariableDeclaration):
                         for declarator in statement.declarators:
-                            if isinstance(declarator.initializer, javalang.tree.ClassCreator):
+                            if isinstance(declarator.initializer, javalang.tree.ClassCreator) and declarator.initializer.type.name:
                                 dependencies.append(declarator.initializer.type.name)
         return associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums
 

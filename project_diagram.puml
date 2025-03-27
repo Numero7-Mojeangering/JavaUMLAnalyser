@@ -1,181 +1,181 @@
 @startuml
 class Balle {
-  - couleur
-  + onStepTime()
-  + getCouleur()
+  - Balle couleur
+  + Balle onStepTime()
+  + Balle getCouleur()
 }
 class Couleur {
-  - random
-  - rouge
-  - vert
-  - bleu
-  + getRouge()
-  + setRouge()
-  + getVert()
-  + setVert()
-  + getBleu()
-  + setBleu()
-  + setRandom()
+  - Couleur random
+  - Couleur rouge
+  - Couleur vert
+  - Couleur bleu
+  + Couleur getRouge()
+  + Couleur setRouge()
+  + Couleur getVert()
+  + Couleur setVert()
+  + Couleur getBleu()
+  + Couleur setBleu()
+  + Couleur setRandom()
 }
 class LeMonde {
-  - min_x
-  - max_x
-  - min_y
-  - max_y
-  - maitreDesActions
-  - vue
-  - robot
-  - balles
-  - r
-  - robot_reach
-  + aleatoire()
-  + creeBalle()
-  + creeAleatoireBalles()
-  + faireUnPasDansLeTemps()
-  + getBalles()
-  + getRobot()
-  + getVue2D()
-  + getMaitreDesActions()
-  + faireLesActions()
-  + wrapObjetStatique()
+  - LeMonde min_x
+  - LeMonde max_x
+  - LeMonde min_y
+  - LeMonde max_y
+  - LeMonde maitreDesActions
+  - LeMonde vue
+  - LeMonde robot
+  - LeMonde balles
+  - LeMonde r
+  - LeMonde robot_reach
+  + LeMonde aleatoire()
+  + LeMonde creeBalle()
+  + LeMonde creeAleatoireBalles()
+  + LeMonde faireUnPasDansLeTemps()
+  + LeMonde getBalles()
+  + LeMonde getRobot()
+  + LeMonde getVue2D()
+  + LeMonde getMaitreDesActions()
+  + LeMonde faireLesActions()
+  + LeMonde wrapObjetStatique()
 }
 class MaitreDesActions {
-  - mouvement
-  - faireAttraperOuRelacherLaBalle
-  + reset()
-  + faireBouger()
-  + faireBouger()
-  + stopBouger()
-  + getMouvementX()
-  + getMouvementY()
-  + ilFautAttraperOuRelacherLaBalle()
-  + faireAttraperOuRelacherLaBalle()
-  + onAttrapeOuRelacherLaBalle()
+  - MaitreDesActions mouvement
+  - MaitreDesActions faireAttraperOuRelacherLaBalle
+  + MaitreDesActions reset()
+  + MaitreDesActions faireBouger()
+  + MaitreDesActions faireBouger()
+  + MaitreDesActions stopBouger()
+  + MaitreDesActions getMouvementX()
+  + MaitreDesActions getMouvementY()
+  + MaitreDesActions ilFautAttraperOuRelacherLaBalle()
+  + MaitreDesActions faireAttraperOuRelacherLaBalle()
+  + MaitreDesActions onAttrapeOuRelacherLaBalle()
 }
 class ObjetDynamique {
-  - mass
-  - velocity
-  - netForce
-  + setMass()
-  + addForce()
-  + addForce()
-  + timeStep()
-  + getVelocity()
-  + onStepTime()
+  - ObjetDynamique mass
+  - ObjetDynamique velocity
+  - ObjetDynamique netForce
+  + ObjetDynamique setMass()
+  + ObjetDynamique addForce()
+  + ObjetDynamique addForce()
+  + ObjetDynamique timeStep()
+  + ObjetDynamique getVelocity()
+  + ObjetDynamique onStepTime()
 }
 class ObjetStatique {
-  - position
-  + getX()
-  + getY()
-  + setX()
-  + setY()
-  + setPosition()
-  + deplacer()
-  + mesureDistance()
+  - ObjetStatique position
+  + ObjetStatique getX()
+  + ObjetStatique getY()
+  + ObjetStatique setX()
+  + ObjetStatique setY()
+  + ObjetStatique setPosition()
+  + ObjetStatique deplacer()
+  + ObjetStatique mesureDistance()
 }
 class Robot {
-  - balles
-  - speed
-  - acceleration
-  - motion
-  + bouger()
-  + onStepTime()
-  + jaiUneBalle()
-  + attraperUneBalle()
-  + relacherLaBalle()
-  + siTransporte()
-  + nbBalles()
+  - Robot balles
+  - Robot speed
+  - Robot acceleration
+  - Robot motion
+  + Robot bouger()
+  + Robot onStepTime()
+  + Robot jaiUneBalle()
+  + Robot attraperUneBalle()
+  + Robot relacherLaBalle()
+  + Robot siTransporte()
+  + Robot nbBalles()
 }
 class Vecteur2D {
-  - x
-  - y
-  + getX()
-  + getY()
-  + setX()
-  + setY()
-  + set()
-  + set()
-  + add()
-  + add()
-  + addScalar()
-  + sub()
-  + subScalar()
-  + zero()
-  + mult()
-  + distance()
+  - Vecteur2D x
+  - Vecteur2D y
+  + Vecteur2D getX()
+  + Vecteur2D getY()
+  + Vecteur2D setX()
+  + Vecteur2D setY()
+  + Vecteur2D set()
+  + Vecteur2D set()
+  + Vecteur2D add()
+  + Vecteur2D add()
+  + Vecteur2D addScalar()
+  + Vecteur2D sub()
+  + Vecteur2D subScalar()
+  + Vecteur2D zero()
+  + Vecteur2D mult()
+  + Vecteur2D distance()
 }
 class ArrayList {
 }
 class Random {
 }
 class Vue2D {
-  - zoom
-  + getX()
-  + getY()
-  + scale()
+  - Vue2D zoom
+  + Vue2D getX()
+  + Vue2D getY()
+  + Vue2D scale()
 }
 class App {
-  - WIDTH
-  - HEIGHT
-  - canvas
-  - clavier
-  - animationTimer
-  - leMondeFX
-  + start()
-  + handleKeyPress()
-  + handleKeyReleased()
-  + update()
-  + draw()
-  + main()
+  - App WIDTH
+  - App HEIGHT
+  - App canvas
+  - App clavier
+  - App animationTimer
+  - App leMondeFX
+  + App start()
+  + App handleKeyPress()
+  + App handleKeyReleased()
+  + App update()
+  + App draw()
+  + App main()
 }
 class BalleFX {
-  - balle
-  - porteBalle
-  - color
-  + getBalle()
-  + setPorteBalle()
-  + draw()
+  - BalleFX balle
+  - BalleFX porteBalle
+  - BalleFX color
+  + BalleFX getBalle()
+  + BalleFX setPorteBalle()
+  + BalleFX draw()
 }
 class ClavierPermanent {
-  - touches_actifs
-  + setTouche()
-  + touchePressed()
-  + toucheReleased()
-  + getTouche()
+  - ClavierPermanent touches_actifs
+  + ClavierPermanent setTouche()
+  + ClavierPermanent touchePressed()
+  + ClavierPermanent toucheReleased()
+  + ClavierPermanent getTouche()
 }
 class LeMondeFX {
-  - leMonde
-  - robotFX
-  - ballesFX
-  + getLeMonde()
-  + getNBBalle()
-  + draw()
+  - LeMondeFX leMonde
+  - LeMondeFX robotFX
+  - LeMondeFX ballesFX
+  + LeMondeFX getLeMonde()
+  + LeMondeFX getNBBalle()
+  + LeMondeFX draw()
 }
 class ObjetDessin {
-  - vue2d
-  - vueFinal
-  - gc
-  + draw()
+  - ObjetDessin vue2d
+  - ObjetDessin vueFinal
+  - ObjetDessin gc
+  + ObjetDessin draw()
 }
 class RobotFX {
-  - robot
-  - nbBalle
-  + getNBBalle()
-  + draw()
+  - RobotFX robot
+  - RobotFX nbBalle
+  + RobotFX getNBBalle()
+  + RobotFX draw()
 }
 class SystemInfo {
-  + javaVersion()
-  + javafxVersion()
+  + SystemInfo javaVersion()
+  + SystemInfo javafxVersion()
 }
 class VueFinal {
-  - width
-  - height
-  + setWidth()
-  + setHeight()
-  + getWidth()
-  + getHeight()
-  + vueX()
-  + vueY()
+  - VueFinal width
+  - VueFinal height
+  + VueFinal setWidth()
+  + VueFinal setHeight()
+  + VueFinal getWidth()
+  + VueFinal getHeight()
+  + VueFinal vueX()
+  + VueFinal vueY()
 }
 Balle -- Couleur
 Couleur -- Random
@@ -187,10 +187,8 @@ LeMonde -- ArrayList
 LeMonde -- Random
 LeMonde ..> Balle
 LeMonde ..> robot
-LeMonde ..> 
 MaitreDesActions -- Vecteur2D
 ObjetDynamique -- Vecteur2D
-ObjetDynamique ..> 
 ObjetStatique -- Vecteur2D
 Robot -- ArrayList
 Robot -- Vecteur2D
@@ -203,7 +201,6 @@ App ..> stage
 App ..> animationTimer
 App ..> gc
 App ..> leMondeFX
-App ..> 
 BalleFX -- Balle
 BalleFX ..> gc
 LeMondeFX -- LeMonde
