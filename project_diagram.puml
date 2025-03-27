@@ -1,181 +1,177 @@
 @startuml
 class Balle {
-  - Balle couleur
-  + Balle onStepTime()
-  + Balle getCouleur()
+ # Couleur couleur
+ # void onStepTime(double)
+ + Couleur getCouleur()
 }
 class Couleur {
-  - Couleur random
-  - Couleur rouge
-  - Couleur vert
-  - Couleur bleu
-  + Couleur getRouge()
-  + Couleur setRouge()
-  + Couleur getVert()
-  + Couleur setVert()
-  + Couleur getBleu()
-  + Couleur setBleu()
-  + Couleur setRandom()
+ - Random random
+ - int rouge
+ - int vert
+ - int bleu
+ + int getRouge()
+ + void setRouge(byte)
+ + int getVert()
+ + void setVert(byte)
+ + int getBleu()
+ + void setBleu(byte)
+ + void setRandom()
 }
 class LeMonde {
-  - LeMonde min_x
-  - LeMonde max_x
-  - LeMonde min_y
-  - LeMonde max_y
-  - LeMonde maitreDesActions
-  - LeMonde vue
-  - LeMonde robot
-  - LeMonde balles
-  - LeMonde r
-  - LeMonde robot_reach
-  + LeMonde aleatoire()
-  + LeMonde creeBalle()
-  + LeMonde creeAleatoireBalles()
-  + LeMonde faireUnPasDansLeTemps()
-  + LeMonde getBalles()
-  + LeMonde getRobot()
-  + LeMonde getVue2D()
-  + LeMonde getMaitreDesActions()
-  + LeMonde faireLesActions()
-  + LeMonde wrapObjetStatique()
+ - int min_x
+ - int max_x
+ - int min_y
+ - int max_y
+ - MaitreDesActions maitreDesActions
+ - Vue2D vue
+ - Robot robot
+ - ArrayList balles
+ - Random r
+ - double robot_reach
+ + int aleatoire(int, int)
+ + Balle creeBalle(int, int)
+ + void creeAleatoireBalles(int)
+ + void faireUnPasDansLeTemps(double)
+ + ArrayList getBalles()
+ + Robot getRobot()
+ + Vue2D getVue2D()
+ + MaitreDesActions getMaitreDesActions()
+ - void faireLesActions(double)
+ + void wrapObjetStatique(ObjetStatique)
 }
 class MaitreDesActions {
-  - MaitreDesActions mouvement
-  - MaitreDesActions faireAttraperOuRelacherLaBalle
-  + MaitreDesActions reset()
-  + MaitreDesActions faireBouger()
-  + MaitreDesActions faireBouger()
-  + MaitreDesActions stopBouger()
-  + MaitreDesActions getMouvementX()
-  + MaitreDesActions getMouvementY()
-  + MaitreDesActions ilFautAttraperOuRelacherLaBalle()
-  + MaitreDesActions faireAttraperOuRelacherLaBalle()
-  + MaitreDesActions onAttrapeOuRelacherLaBalle()
+ - Vecteur2D mouvement
+ - boolean faireAttraperOuRelacherLaBalle
+ + void reset()
+ + void faireBouger(double, double)
+ + void stopBouger(Direction)
+ + double getMouvementX()
+ + double getMouvementY()
+ + boolean ilFautAttraperOuRelacherLaBalle()
+ + void faireAttraperOuRelacherLaBalle()
+ + void onAttrapeOuRelacherLaBalle()
 }
 class ObjetDynamique {
-  - ObjetDynamique mass
-  - ObjetDynamique velocity
-  - ObjetDynamique netForce
-  + ObjetDynamique setMass()
-  + ObjetDynamique addForce()
-  + ObjetDynamique addForce()
-  + ObjetDynamique timeStep()
-  + ObjetDynamique getVelocity()
-  + ObjetDynamique onStepTime()
+ - double mass
+ # Vecteur2D velocity
+ # Vecteur2D netForce
+ + void setMass(double)
+ + void addForce(double, double)
+ + void timeStep(double)
+ + Vecteur2D getVelocity()
+ # void onStepTime(double)
 }
 class ObjetStatique {
-  - ObjetStatique position
-  + ObjetStatique getX()
-  + ObjetStatique getY()
-  + ObjetStatique setX()
-  + ObjetStatique setY()
-  + ObjetStatique setPosition()
-  + ObjetStatique deplacer()
-  + ObjetStatique mesureDistance()
+ # Vecteur2D position
+ + double getX()
+ + double getY()
+ + void setX(double)
+ + void setY(double)
+ + void setPosition(double, double)
+ + void deplacer(double, double)
+ + double mesureDistance(ObjetStatique, ObjetStatique)
 }
 class Robot {
-  - Robot balles
-  - Robot speed
-  - Robot acceleration
-  - Robot motion
-  + Robot bouger()
-  + Robot onStepTime()
-  + Robot jaiUneBalle()
-  + Robot attraperUneBalle()
-  + Robot relacherLaBalle()
-  + Robot siTransporte()
-  + Robot nbBalles()
+ - ArrayList balles
+ - double speed
+ - double acceleration
+ - Vecteur2D motion
+ + void bouger(double, double)
+ + void onStepTime(double)
+ + boolean jaiUneBalle()
+ + void attraperUneBalle(Balle)
+ + void relacherLaBalle()
+ + boolean siTransporte(Balle)
+ + int nbBalles()
 }
 class Vecteur2D {
-  - Vecteur2D x
-  - Vecteur2D y
-  + Vecteur2D getX()
-  + Vecteur2D getY()
-  + Vecteur2D setX()
-  + Vecteur2D setY()
-  + Vecteur2D set()
-  + Vecteur2D set()
-  + Vecteur2D add()
-  + Vecteur2D add()
-  + Vecteur2D addScalar()
-  + Vecteur2D sub()
-  + Vecteur2D subScalar()
-  + Vecteur2D zero()
-  + Vecteur2D mult()
-  + Vecteur2D distance()
+ - double x
+ - double y
+ + double getX()
+ + double getY()
+ + void setX(double)
+ + void setY(double)
+ + void set(Vecteur2D)
+ + void add(double, double)
+ + void addScalar(Vecteur2D, double)
+ + void sub(Vecteur2D)
+ + void subScalar(Vecteur2D, double)
+ + void zero()
+ + void mult(double)
+ + double distance(Vecteur2D, Vecteur2D)
 }
 class ArrayList {
 }
 class Random {
 }
 class Vue2D {
-  - Vue2D zoom
-  + Vue2D getX()
-  + Vue2D getY()
-  + Vue2D scale()
+ - double zoom
+ + double getX(ObjetStatique)
+ + double getY(ObjetStatique)
+ + double scale(double)
 }
 class App {
-  - App WIDTH
-  - App HEIGHT
-  - App canvas
-  - App clavier
-  - App animationTimer
-  - App leMondeFX
-  + App start()
-  + App handleKeyPress()
-  + App handleKeyReleased()
-  + App update()
-  + App draw()
-  + App main()
+ - int WIDTH
+ - int HEIGHT
+ - Canvas canvas
+ - ClavierPermanent clavier
+ - AnimationTimer animationTimer
+ - LeMondeFX leMondeFX
+ + void start(Stage)
+ - void handleKeyPress(KeyEvent)
+ - void handleKeyReleased(KeyEvent)
+ - void update(double)
+ - void draw()
+ + void main(String)
 }
 class BalleFX {
-  - BalleFX balle
-  - BalleFX porteBalle
-  - BalleFX color
-  + BalleFX getBalle()
-  + BalleFX setPorteBalle()
-  + BalleFX draw()
+ - Balle balle
+ - boolean porteBalle
+ - Color color
+ + Balle getBalle()
+ + void setPorteBalle(boolean)
+ + void draw()
 }
 class ClavierPermanent {
-  - ClavierPermanent touches_actifs
-  + ClavierPermanent setTouche()
-  + ClavierPermanent touchePressed()
-  + ClavierPermanent toucheReleased()
-  + ClavierPermanent getTouche()
+ - boolean touches_actifs
+ - void setTouche(int, boolean)
+ + void touchePressed(int)
+ + void toucheReleased(int)
+ + boolean getTouche(int)
 }
 class LeMondeFX {
-  - LeMondeFX leMonde
-  - LeMondeFX robotFX
-  - LeMondeFX ballesFX
-  + LeMondeFX getLeMonde()
-  + LeMondeFX getNBBalle()
-  + LeMondeFX draw()
+ - LeMonde leMonde
+ - RobotFX robotFX
+ - ArrayList ballesFX
+ + LeMonde getLeMonde()
+ + Text getNBBalle()
+ + void draw()
 }
 class ObjetDessin {
-  - ObjetDessin vue2d
-  - ObjetDessin vueFinal
-  - ObjetDessin gc
-  + ObjetDessin draw()
+ # Vue2D vue2d
+ # VueFinal vueFinal
+ # GraphicsContext gc
+ + void draw()
 }
 class RobotFX {
-  - RobotFX robot
-  - RobotFX nbBalle
-  + RobotFX getNBBalle()
-  + RobotFX draw()
+ - Robot robot
+ - Text nbBalle
+ + Text getNBBalle()
+ + void draw()
 }
 class SystemInfo {
-  + SystemInfo javaVersion()
-  + SystemInfo javafxVersion()
+ + String javaVersion()
+ + String javafxVersion()
 }
 class VueFinal {
-  - VueFinal width
-  - VueFinal height
-  + VueFinal setWidth()
-  + VueFinal setHeight()
-  + VueFinal getWidth()
-  + VueFinal getHeight()
-  + VueFinal vueX()
-  + VueFinal vueY()
+ - int width
+ - int height
+ + void setWidth(int)
+ + void setHeight(int)
+ + int getWidth()
+ + int getHeight()
+ + int vueX(double)
+ + int vueY(double)
 }
 ObjetDynamique <|-- Balle
 Balle -- Couleur

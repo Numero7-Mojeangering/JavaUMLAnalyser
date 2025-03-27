@@ -8,7 +8,7 @@ from plantuml import PlantUML
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 class JavaClass:
-    def __init__(self, name: str, package: str, attributes: Dict[str, str], methods: Dict[str, str],
+    def __init__(self, name: str, package: str, attributes: Dict[str, str], methods: Dict[str, Dict[str, List[str]]],
                  extends: Optional[str] = None, implements: Optional[List[str]] = None,
                  associations: Optional[List[str]] = None, dependencies: Optional[List[str]] = None,
                  aggregations: Optional[List[str]] = None, compositions: Optional[List[str]] = None,
@@ -79,15 +79,43 @@ class JavaProjectParser:
                 return node.name
         return "default"
 
-    def _extract_members(self, class_node: javalang.tree.ClassDeclaration) -> Tuple[Dict[str, str], Dict[str, str]]:
-        attributes = [f"{class_node.name} {declarator.name}" for member in class_node.body
+    def _extract_members(self, class_node: javalang.tree.ClassDeclaration) -> Tuple[Dict[str, str], Dict[str, Dict[str, List[str]]]]:
+        attributes = {declarator.name: self._get_field_type(member) for member in class_node.body
                       if isinstance(member, javalang.tree.FieldDeclaration)
-                      for declarator in member.declarators]
+                      for declarator in member.declarators}
         
-        methods = [f"{class_node.name} {member.name}" for member in class_node.body 
-                   if isinstance(member, javalang.tree.MethodDeclaration)]
+        methods = {member.name: self._get_method_signature(member) for member in class_node.body 
+                   if isinstance(member, javalang.tree.MethodDeclaration)}
         
         return attributes, methods
+
+    def _get_field_type(self, field_decl: javalang.tree.FieldDeclaration) -> str:
+        """Extracts the type of the field and visibility (public, private, protected)."""
+        visibility = self._get_visibility_from_modifiers(field_decl.modifiers)
+        field_type = field_decl.type.name if hasattr(field_decl.type, 'name') else "Unknown"
+        return f"{visibility} {field_type}"
+
+    def _get_method_signature(self, method_node: javalang.tree.MethodDeclaration) -> Dict[str, List[str]]:
+        """Extracts the method signature, return type, parameters, and visibility."""
+        visibility = self._get_visibility_from_modifiers(method_node.modifiers)
+        return_type = method_node.return_type.name if hasattr(method_node.return_type, 'name') else "void"
+        parameters = [param.type.name if hasattr(param.type, 'name') else "Unknown" for param in method_node.parameters]
+        return {
+            "visibility": visibility,
+            "return_type": return_type,
+            "parameters": parameters
+        }
+    
+    def _get_visibility_from_modifiers(self, modifiers: List[str]) -> str:
+        """Extracts visibility from method or field modifiers."""
+        if "public" in modifiers:
+            return "+"
+        elif "private" in modifiers:
+            return "-"
+        elif "protected" in modifiers:
+            return "#"
+        else:
+            return ""  # Default to package-private (no modifier)
 
     def _extract_extends(self, class_node: javalang.tree.ClassDeclaration) -> Optional[str]:
         """ Extracts the parent class the current class extends. """
@@ -143,21 +171,32 @@ class PlantUMLGenerator:
         """Generates PlantUML diagram code."""
         uml = ["@startuml"]
 
+        # Generating the class definitions
         for cls in self.classes.values():
             uml.append(f"class {cls.name} {{")
-            for attr in cls.attributes:
-                uml.append(f"  - {attr}")
-            for method in cls.methods:
-                uml.append(f"  + {method}()")
+            
+            # Adding attributes with visibility
+            for attr, visibility in cls.attributes.items():
+                uml.append(f" {visibility} {attr}")
+            
+            # Adding methods with visibility, return type, and parameters
+            for method, signature in cls.methods.items():
+                visibility = signature.get("visibility", "+")  # Default to public if no visibility
+                return_type = signature.get("return_type", "void")
+                parameters = ", ".join(signature.get("parameters", []))
+                uml.append(f" {visibility} {return_type} {method}({parameters})")
+                
             uml.append("}")
 
         # Fix to prevent duplicated relations.
-        relations: set[str] = {""}
-        def add_relation(relation: str):
-            if not relation in relations:
-                uml.append(relation)
-            relations.add(relation)
+        relations: set[str] = set()
 
+        def add_relation(relation: str):
+            if relation not in relations:
+                uml.append(relation)
+                relations.add(relation)
+
+        # Generating relationships
         for cls in self.classes.values():
             if cls.extends:
                 add_relation(f"{cls.extends} <|-- {cls.name}")
@@ -178,6 +217,7 @@ class PlantUMLGenerator:
 
         uml.append("@enduml")
         return "\n".join(uml)
+
 
 
 class PlantUMLDiagram:
