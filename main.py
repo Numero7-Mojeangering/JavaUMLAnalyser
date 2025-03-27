@@ -42,11 +42,51 @@ class JavaProjectParser:
         self.classes: Dict[str, JavaClass] = {}
 
     def parse(self) -> None:
-        """Parses Java files in the given project path."""
+        """Parses Java files in two passes to ensure all relationships are detected."""
+        # Pass 1: Discover classes
         for root, _, files in os.walk(self.project_path):
             for file in files:
                 if file.endswith(".java"):
-                    self._parse_java_file(os.path.join(root, file))
+                    self._discover_java_class(os.path.join(root, file))
+        
+        # Pass 2: Extract relationships
+        for root, _, files in os.walk(self.project_path):
+            for file in files:
+                if file.endswith(".java"):
+                    self._extract_relationships_from_file(os.path.join(root, file))
+    
+    def _discover_java_class(self, file_path: str) -> None:
+        """Discovers class names and basic structure without extracting relationships."""
+        try:
+            with open(file_path, "r", encoding="utf-8") as file:
+                tree = javalang.parse.parse(file.read())
+                package = self._extract_package(tree)
+
+                for _, node in tree:
+                    if isinstance(node, javalang.tree.ClassDeclaration):
+                        attributes, methods = self._extract_members(node)
+                        java_class = JavaClass(node.name, package, attributes, methods)
+                        self.classes[java_class.name] = java_class
+        except (javalang.parser.JavaSyntaxError, FileNotFoundError) as e:
+            logging.error(f"Failed to parse {file_path}: {e}")
+
+    def _extract_relationships_from_file(self, file_path: str) -> None:
+        """Extracts relationships after all classes have been discovered."""
+        try:
+            with open(file_path, "r", encoding="utf-8") as file:
+                tree = javalang.parse.parse(file.read())
+                for _, node in tree:
+                    if isinstance(node, javalang.tree.ClassDeclaration) and node.name in self.classes:
+                        associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations = self._extract_relationships(node)
+                        java_class = self.classes[node.name]
+                        java_class.associations = associations
+                        java_class.dependencies = dependencies
+                        java_class.aggregations = aggregations
+                        java_class.compositions = compositions
+                        java_class.bidirectional_associations = bidirectional_associations
+                        java_class.reflexive_associations = reflexive_associations
+        except (javalang.parser.JavaSyntaxError, FileNotFoundError) as e:
+            logging.error(f"Failed to parse {file_path}: {e}")
 
     def _parse_java_file(self, file_path: str) -> None:
         """Parses an individual Java file."""
@@ -146,22 +186,30 @@ class PlantUMLGenerator:
                 uml.append(f"  + {method}()")
             uml.append("}")
 
+        # Fix to prevent duplicated relations.
+        relations: set[str] = {""}
+        def add_relation(relation: str):
+            if not relation in relations:
+                uml.append(relation)
+            relations.add(relation)
+
+        for cls in self.classes.values():
             if cls.extends:
-                uml.append(f"{cls.extends} <|-- {cls.name}")
+                add_relation(f"{cls.extends} <|-- {cls.name}")
             for impl in cls.implements:
-                uml.append(f"{impl} <|.. {cls.name}")
+                add_relation(f"{impl} <|.. {cls.name}")
             for assoc in cls.associations:
-                uml.append(f"{cls.name} -- {assoc}")
+                add_relation(f"{cls.name} -- {assoc}")
             for dep in cls.dependencies:
-                uml.append(f"{cls.name} ..> {dep}")
+                add_relation(f"{cls.name} ..> {dep}")
             for agg in cls.aggregations:
-                uml.append(f"{cls.name} o-- {agg}")
+                add_relation(f"{cls.name} o-- {agg}")
             for comp in cls.compositions:
-                uml.append(f"{cls.name} *-- {comp}")
+                add_relation(f"{cls.name} *-- {comp}")
             for bidir in cls.bidirectional_associations:
-                uml.append(f"{cls.name} <--> {bidir}")
+                add_relation(f"{cls.name} <--> {bidir}")
             for reflexive in cls.reflexive_associations:
-                uml.append(f"{cls.name} *-- {reflexive}")
+                add_relation(f"{cls.name} *-- {reflexive}")
 
         uml.append("@enduml")
         return "\n".join(uml)
@@ -198,7 +246,7 @@ class ConfigLoader:
 
 def main() -> None:
     # Load configuration
-    config_loader = ConfigLoader("python analyser/config.json")
+    config_loader = ConfigLoader("config.json")
     input_folder = config_loader.get_input_folder()
     output_uml = config_loader.get_output_uml()
 
