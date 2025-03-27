@@ -1,3 +1,13 @@
+"""
+This program extracts class relationships from a Java project and generates a UML diagram using PlantUML.
+
+The process involves parsing Java source files, generating PlantUML code based on the relationships between
+classes, and then generating a visual UML diagram from the PlantUML code.
+
+This project was developed with the help of ChatGPT. The solutions provided by ChatGPT were stitched together.
+
+Author: Numero7 Mojeangering (Valentin ISOARD)
+"""
 import json
 import os
 import javalang
