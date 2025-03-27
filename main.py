@@ -1,3 +1,4 @@
+import json
 import os
 import javalang
 import logging
@@ -166,15 +167,49 @@ class PlantUMLGenerator:
         return "\n".join(uml)
 
 
+class ConfigLoader:
+    def __init__(self, config_file_path):
+        self.config_file_path = config_file_path
+        self.config = self.load_config()
+
+    def load_config(self):
+        """
+        Loads the configuration from the provided JSON file.
+        """
+        try:
+            with open(self.config_file_path, "r", encoding="utf-8") as config_file:
+                return json.load(config_file)
+        except Exception as e:
+            print(f"Error loading configuration: {e}")
+            return {}
+
+    def get_input_folder(self):
+        """
+        Returns the input folder from the loaded configuration.
+        """
+        return self.config.get("input_folder", "./")
+
+    def get_output_uml(self):
+        """
+        Returns the output UML file path from the loaded configuration.
+        """
+        return self.config.get("output_uml", "project_diagram.puml")
+
+
 def main() -> None:
-    project_directory = "Robot2D_v0_ISOARD_VALENTIN"  # Change this to your Java project path
+    # Load configuration
+    config_loader = ConfigLoader("python analyser/config.json")
+    input_folder = config_loader.get_input_folder()
+    output_uml = config_loader.get_output_uml()
+
+    project_directory = input_folder
     parser = JavaProjectParser(project_directory)
     parser.parse()
 
     generator = PlantUMLGenerator(parser.classes)
     plantuml_code = generator.generate()
 
-    output_file = "JavaUMLGenerator/plantuml_diagram.puml"
+    output_file = output_uml
     with open(output_file, "w", encoding="utf-8") as file:
         file.write(plantuml_code)
     
