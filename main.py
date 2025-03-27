@@ -6,13 +6,12 @@ from typing import List, Dict, Tuple, Optional
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 class JavaClass:
-    """Represents a Java class with attributes, methods, and relationships."""
-    def __init__(self, name: str, package: str, attributes: List[str], methods: List[str],
-                 extends: Optional[str] = None, implements: Optional[List[str]] = None,
+    """Represents a Java class with its attributes, methods, and relationships."""
+    def __init__(self, name: str, package: str, attributes: List[str], methods: List[str], 
+                 extends: Optional[str] = None, implements: Optional[List[str]] = None, 
                  associations: Optional[List[str]] = None, dependencies: Optional[List[str]] = None,
                  aggregations: Optional[List[str]] = None, compositions: Optional[List[str]] = None,
-                 bidirectional_associations: Optional[List[str]] = None, reflexive_associations: Optional[List[str]] = None,
-                 static_dependencies: Optional[List[str]] = None, package_friends: Optional[List[str]] = None):
+                 bidirectional_associations: Optional[List[str]] = None, reflexive_associations: Optional[List[str]] = None):
         self.name = name
         self.package = package
         self.attributes = attributes
@@ -25,18 +24,15 @@ class JavaClass:
         self.compositions = compositions or []
         self.bidirectional_associations = bidirectional_associations or []
         self.reflexive_associations = reflexive_associations or []
-        self.static_dependencies = static_dependencies or []
-        self.package_friends = package_friends or []
-    
+
     def __str__(self) -> str:
         return (f"Class: {self.name}, Package: {self.package}, "
                 f"Extends: {self.extends}, Implements: {self.implements}, "
                 f"Associations: {self.associations}, Dependencies: {self.dependencies}, "
                 f"Aggregations: {self.aggregations}, Compositions: {self.compositions}, "
                 f"Bidirectional Associations: {self.bidirectional_associations}, "
-                f"Reflexive Associations: {self.reflexive_associations}, "
-                f"Static Dependencies: {self.static_dependencies}, "
-                f"Package Friends: {self.package_friends}")
+                f"Reflexive Associations: {self.reflexive_associations}")
+
 
 class JavaProjectParser:
     """Parses a Java project to extract class details."""
@@ -57,27 +53,31 @@ class JavaProjectParser:
             with open(file_path, "r", encoding="utf-8") as file:
                 tree = javalang.parse.parse(file.read())
                 package = self._extract_package(tree)
-                
+
                 for _, node in tree:
                     if isinstance(node, javalang.tree.ClassDeclaration):
                         attributes, methods = self._extract_members(node)
                         extends = node.extends.name if node.extends else None
                         implements = [impl.name for impl in node.implements] if node.implements else []
-                        relationships = self._extract_relationships(node, file_path)
-                        
-                        java_class = JavaClass(node.name, package, attributes, methods, extends, implements, *relationships)
+                        associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations = self._extract_relationships(node)
+
+                        java_class = JavaClass(node.name, package, attributes, methods, extends, implements, 
+                                               associations, dependencies, aggregations, compositions, 
+                                               bidirectional_associations, reflexive_associations)
                         self.classes[java_class.name] = java_class
                         logging.info(f"Parsed: {java_class}")
         except (javalang.parser.JavaSyntaxError, FileNotFoundError) as e:
             logging.error(f"Failed to parse {file_path}: {e}")
 
     def _extract_package(self, tree: javalang.tree.CompilationUnit) -> str:
+        """Extracts the package name from a Java file's AST."""
         for _, node in tree:
             if isinstance(node, javalang.tree.PackageDeclaration):
                 return node.name
         return "default"
 
     def _extract_members(self, class_node: javalang.tree.ClassDeclaration) -> Tuple[List[str], List[str]]:
+        """Extracts attributes and methods from a class node."""
         attributes = [declarator.name for member in class_node.body 
                       if isinstance(member, javalang.tree.FieldDeclaration)
                       for declarator in member.declarators]
@@ -87,39 +87,45 @@ class JavaProjectParser:
         
         return attributes, methods
 
-    def _extract_relationships(self, class_node: javalang.tree.ClassDeclaration, file_path: str) -> Tuple[List[str], List[str], List[str], List[str], List[str], List[str], List[str], List[str]]:
+    def _extract_relationships(self, class_node: javalang.tree.ClassDeclaration) -> Tuple[List[str], List[str], List[str], List[str], List[str], List[str]]:
+        """Extracts different relationships from a class node."""
         associations, dependencies, aggregations, compositions = [], [], [], []
-        bidirectional_associations, reflexive_associations, static_dependencies, package_friends = [], [], [], []
-        
+        bidirectional_associations, reflexive_associations = [], []
+
         for member in class_node.body:
             if isinstance(member, javalang.tree.FieldDeclaration):
                 field_type = member.type.name if hasattr(member.type, 'name') else None
                 if field_type:
-                    associations.append(field_type)
+                    # Detect associations
+                    if field_type in self.classes:
+                        associations.append(field_type)
+
+                    # Detect aggregations and compositions
                     if field_type in {"List", "Set", "Map"} and member.type.arguments:
                         aggregations.append(member.type.arguments[0].type.name)
+
+                    for declarator in member.declarators:
+                        if declarator.initializer and isinstance(declarator.initializer, javalang.tree.ClassCreator):
+                            compositions.append(field_type)
+
+                    # Reflexive associations (self-references)
                     if field_type == class_node.name:
                         reflexive_associations.append(field_type)
-                
-            elif isinstance(member, javalang.tree.MethodDeclaration):
+
+            # Detect bidirectional associations
+            if isinstance(member, javalang.tree.MethodDeclaration):
                 for param in member.parameters:
                     if hasattr(param.type, 'name'):
                         dependencies.append(param.type.name)
-                        if param.type.name == class_node.name:
-                            reflexive_associations.append(param.type.name)
-                
-                # Detect static method calls
-                for _, expression in member:
-                    if isinstance(expression, javalang.tree.MethodInvocation) and '.' in expression.qualifier:
-                        static_dependencies.append(expression.qualifier.split('.')[0])
-        
-        # Package-private relationships
-        class_package = self._extract_package(javalang.parse.parse(open(file_path).read()))
-        for other_class in self.classes.values():
-            if other_class.package == class_package and other_class.name != class_node.name:
-                package_friends.append(other_class.name)
-        
-        return associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, static_dependencies, package_friends
+
+        # Check for bidirectional associations
+        for assoc in associations:
+            if assoc in self.classes:
+                for other_class in self.classes.values():
+                    if assoc in other_class.associations and class_node.name in other_class.associations:
+                        bidirectional_associations.append(assoc)
+
+        return associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations
 
 
 class PlantUMLGenerator:
