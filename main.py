@@ -38,17 +38,24 @@ class JavaClass:
         self.reflexive_associations = reflexive_associations or []
         self.enums = enums or []
         self.external_inheritance = external_inheritance or []
+    
+
+import logging
+import os
+import javalang
+from typing import List, Dict, Tuple, Optional
 
 class JavaProjectParser:
     def __init__(self, project_path: str):
         self.project_path = project_path
-        self.classes: Dict[str, JavaClass] = {}
+        self.classes: Dict[str, 'JavaClass'] = {}
 
     def parse(self) -> None:
         for root, _, files in os.walk(self.project_path):
             for file in files:
                 if file.endswith(".java"):
                     self._discover_java_class(os.path.join(root, file))
+        
         for root, _, files in os.walk(self.project_path):
             for file in files:
                 if file.endswith(".java"):
@@ -125,7 +132,7 @@ class JavaProjectParser:
         elif "protected" in modifiers:
             return "#"
         else:
-            return ""  # Default to package-private (no modifier)
+            return "~"
 
     def _extract_extends(self, class_node: javalang.tree.ClassDeclaration) -> Optional[str]:
         """ Extracts the parent class the current class extends. """
@@ -142,27 +149,66 @@ class JavaProjectParser:
         
         for member in class_node.body:
             if isinstance(member, javalang.tree.FieldDeclaration):
+                # Get the field type, not the name
                 field_type = member.type.name if hasattr(member.type, 'name') else None
+                
                 if field_type and field_type.strip():
+                    # Extract the inner types of the collection (e.g., Something<Hello1, Hello2, Hello3>)
+                    if hasattr(member.type, 'arguments') and member.type.arguments:
+                        # Extract the generic type arguments
+                        for argument in member.type.arguments:
+                            inner_type = argument.type.name
+                            if inner_type in self.classes:
+                                associations.append(inner_type)
+                            # Track the aggregated types (generic types)
+                            if inner_type:
+                                aggregations.append(inner_type)
+                    
+                    # Check for direct class references or associations
                     if field_type in self.classes:
                         associations.append(field_type)
-                    if field_type in {"List", "Set", "Map"} and member.type.arguments:
-                        aggregations.append(member.type.arguments[0].type.name)
+                    
+                    # Check for compositions if the field is created using initializer expression for the field
                     for declarator in member.declarators:
                         if declarator.initializer and isinstance(declarator.initializer, javalang.tree.ClassCreator):
                             compositions.append(field_type)
+                    
+                    # Reflexive association (e.g., a class referencing itself)
                     if field_type == class_node.name:
                         reflexive_associations.append(field_type)
-                if field_type and field_type.isupper():
-                    enums.append(field_type)
+                    
+                    # Check for enums (if the field type is in upper case)
+                    if field_type and field_type.isupper():
+                        enums.append(field_type)
+            
+            # Check constructor methods (ConstructorDeclaration in javalang)
+            if isinstance(member, javalang.tree.ConstructorDeclaration):
+                # It's a constructor, check its body for object creation
+                for statement in member.body:
+                    # Check if the statement is an assignment
+                    if isinstance(statement, javalang.tree.StatementExpression) and isinstance(statement.expression, javalang.tree.Assignment):
+                        # Get the right-hand side (rvalue) of the assignment
+                        value = statement.expression.value
+                        
+                        # Check if the right-hand side is a ClassCreator (object creation)
+                        if isinstance(value, javalang.tree.ClassCreator):
+                            # Get the type of the created object (e.g., ArrayList)
+                            field_type = value.type.name
+                            compositions.append(field_type)  # Track object creation for compositions
 
             if isinstance(member, javalang.tree.MethodDeclaration):
                 for statement in member.body or []:
+                    # Check if the statement is an expression statement and it's a method invocation with a qualifier (e.g., obj.method())
                     if isinstance(statement, javalang.tree.StatementExpression) and isinstance(statement.expression, javalang.tree.MethodInvocation) and statement.expression.qualifier:
+                        # Add the qualifier (the object or class being invoked) to the dependencies list
                         dependencies.append(statement.expression.qualifier)
+
+                    # Check if the statement is a local variable declaration (e.g., LocalVariableDeclaration myVar = new MyClass();)
                     if isinstance(statement, javalang.tree.LocalVariableDeclaration):
                         for declarator in statement.declarators:
+                            # Check if the local variable initializer is a ClassCreator (indicating object creation, like new MyClass())
                             if isinstance(declarator.initializer, javalang.tree.ClassCreator) and declarator.initializer.type.name:
+                                # Add the type of the created object to the dependencies list
                                 dependencies.append(declarator.initializer.type.name)
 
         # Track external inheritance (e.g., from external packages)
