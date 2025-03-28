@@ -1,244 +1,53 @@
 @startuml
-package mkx.imtminesales.robot2d {
- class Balle {
-  # Couleur couleur
-  # void onStepTime(double)
-  + Couleur getCouleur()
+package package1 {
+ class Ag1 {
+  - double d1
+  - double d2
+  - ArrayList test
+  + void addTest(double)
+  + double getD1()
+  + double getD2()
+  + void setD2(double)
+  + void setD1(double)
  }
- class Couleur {
-  - Random random
-  - int rouge
-  - int vert
-  - int bleu
-  + int getRouge()
-  + void setRouge(byte)
-  + int getVert()
-  + void setVert(byte)
-  + int getBleu()
-  + void setBleu(byte)
-  + void setRandom()
+ class Test {
  }
- class LeMonde {
-  - int min_x
-  - int max_x
-  - int min_y
-  - int max_y
-  - MaitreDesActions maitreDesActions
-  - Vue2D vue
-  - Robot robot
-  - ArrayList balles
-  - Random r
-  - double robot_reach
-  + int aleatoire(int, int)
-  + Balle creeBalle(int, int)
-  + void creeAleatoireBalles(int)
-  + void faireUnPasDansLeTemps(double)
-  + ArrayList getBalles()
-  + Robot getRobot()
-  + Vue2D getVue2D()
-  + MaitreDesActions getMaitreDesActions()
-  - void faireLesActions(double)
-  + void wrapObjetStatique(ObjetStatique)
+ class Ag2 {
+  - String str
+  + String getStr()
  }
- class MaitreDesActions {
-  - Vecteur2D mouvement
-  - boolean faireAttraperOuRelacherLaBalle
-  + void reset()
-  + void faireBouger(double, double)
-  + void stopBouger(Direction)
-  + double getMouvementX()
-  + double getMouvementY()
-  + boolean ilFautAttraperOuRelacherLaBalle()
-  + void faireAttraperOuRelacherLaBalle()
-  + void onAttrapeOuRelacherLaBalle()
+ class Ag3 {
  }
- class ObjetDynamique {
-  - double mass
-  # Vecteur2D velocity
-  # Vecteur2D netForce
-  + void setMass(double)
-  + void addForce(double, double)
-  + void timeStep(double)
-  + Vecteur2D getVelocity()
-  # void onStepTime(double)
+ class Main {
+  - int test
+  - Ag1 ag1
+  - Ag2 ag2
+  + Ag2 getAg2()
+  + int getTest()
+  + Ag1 getAg1()
  }
- class ObjetStatique {
-  # Vecteur2D position
-  + double getX()
-  + double getY()
-  + void setX(double)
-  + void setY(double)
-  + void setPosition(double, double)
-  + void deplacer(double, double)
-  + double mesureDistance(ObjetStatique, ObjetStatique)
+ class SuperMain {
+  - Ag1 test3
+  - Ag3 test64
+  - Main main
  }
- class Robot {
-  - ArrayList balles
-  - double speed
-  - double acceleration
-  - Vecteur2D motion
-  + void bouger(double, double)
-  + void onStepTime(double)
-  + boolean jaiUneBalle()
-  + void attraperUneBalle(Balle)
-  + void relacherLaBalle()
-  + boolean siTransporte(Balle)
-  + int nbBalles()
+ class UUU1 {
+  - int trze
+  + int getTRZE()
  }
- class Vecteur2D {
-  - double x
-  - double y
-  + double getX()
-  + double getY()
-  + void setX(double)
-  + void setY(double)
-  + void set(Vecteur2D)
-  + void add(double, double)
-  + void addScalar(Vecteur2D, double)
-  + void sub(Vecteur2D)
-  + void subScalar(Vecteur2D, double)
-  + void zero()
-  + void mult(double)
-  + double distance(Vecteur2D, Vecteur2D)
+ interface MyInterface1 {
  }
  }
-package java.util {
- class ArrayList {
- }
- class Random {
- }
- }
-package mkx.imtminesales.robot2d_fx {
- class Vue2D {
- }
- class App {
-  - int WIDTH
-  - int HEIGHT
-  - Canvas canvas
-  - ClavierPermanent clavier
-  - AnimationTimer animationTimer
-  - LeMondeFX leMondeFX
-  + void start(Stage)
-  - void handleKeyPress(KeyEvent)
-  - void handleKeyReleased(KeyEvent)
-  - void update(double)
-  - void draw()
-  + void main(String)
- }
- class BalleFX {
-  - Balle balle
-  - boolean porteBalle
-  - Color color
-  + Balle getBalle()
-  + void setPorteBalle(boolean)
-  + void draw()
- }
- class ClavierPermanent {
-  - boolean touches_actifs
-  - void setTouche(int, boolean)
-  + void touchePressed(int)
-  + void toucheReleased(int)
-  + boolean getTouche(int)
- }
- class LeMondeFX {
-  - LeMonde leMonde
-  - RobotFX robotFX
-  - ArrayList ballesFX
-  + LeMonde getLeMonde()
-  + Text getNBBalle()
-  + void draw()
- }
- class ObjetDessin {
-  # Vue2D vue2d
-  # VueFinal vueFinal
-  # GraphicsContext gc
-  + void draw()
- }
- class RobotFX {
-  - Robot robot
-  - Text nbBalle
-  + Text getNBBalle()
-  + void draw()
- }
- class SystemInfo {
-  + String javaVersion()
-  + String javafxVersion()
- }
- class Vue2D {
-  - double zoom
-  + double getX(ObjetStatique)
-  + double getY(ObjetStatique)
-  + double scale(double)
- }
- class VueFinal {
-  - int width
-  - int height
-  + void setWidth(int)
-  + void setHeight(int)
-  + int getWidth()
-  + int getHeight()
-  + int vueX(double)
-  + int vueY(double)
- }
- }
-ObjetDynamique <|-- Balle
-Balle -- Couleur
-Balle *-- Couleur
-Couleur -- Random
-Couleur *-- Random
-LeMonde -- Vue2D
-LeMonde -- Random
-LeMonde -- MaitreDesActions
-LeMonde -- ArrayList
-LeMonde -- Robot
-LeMonde -- Balle
-LeMonde -- ObjetStatique
-LeMonde ..> Balle
-LeMonde o-- Balle
-LeMonde *-- MaitreDesActions
-LeMonde *-- Vue2D
-LeMonde *-- Robot
-LeMonde *-- ArrayList
-LeMonde *-- Random
-MaitreDesActions -- Vecteur2D
-MaitreDesActions *-- Vecteur2D
-ObjetStatique <|-- ObjetDynamique
-ObjetDynamique -- Vecteur2D
-ObjetDynamique *-- Vecteur2D
-ObjetStatique -- Vecteur2D
-ObjetStatique *-- Vecteur2D
-ObjetStatique -- ObjetStatique
-ObjetDynamique <|-- Robot
-Robot -- ArrayList
-Robot -- Balle
-Robot -- Vecteur2D
-Robot o-- Balle
-Robot *-- ArrayList
-Robot *-- Vecteur2D
-Vecteur2D -- Vecteur2D
-Application <|-- App
-App -- ClavierPermanent
-App -- LeMondeFX
-App ..> StackPane
-App ..> Scene
-ObjetDessin <|-- BalleFX
-BalleFX -- Balle
-ObjetDessin <|-- LeMondeFX
-LeMondeFX -- ArrayList
-LeMondeFX -- RobotFX
-LeMondeFX -- BalleFX
-LeMondeFX -- LeMonde
-LeMondeFX -- VueFinal
-LeMondeFX o-- BalleFX
-LeMondeFX *-- LeMonde
-LeMondeFX *-- RobotFX
-LeMondeFX *-- ArrayList
-LeMondeFX *-- VueFinal
-ObjetDessin -- Vue2D
-ObjetDessin -- VueFinal
-ObjetDessin <|-- RobotFX
-RobotFX -- Robot
-RobotFX *-- Text
-ObjetStatique <|-- Vue2D
-Vue2D -- ObjetStatique
+Ag1 o-- Double
+Ag1 *-- ArrayList
+MyInterface1 <|.. Ag3
+SuperMain <|-- Main
+Main -- Ag2
+Main -- Ag1
+Main *-- Ag2
+SuperMain -- Main
+SuperMain -- Ag3
+SuperMain -- Ag1
+SuperMain *-- Main
+SuperMain *-- Ag1
 @enduml

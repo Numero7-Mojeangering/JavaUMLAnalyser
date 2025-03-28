@@ -41,18 +41,33 @@ class JavaClass:
         self.enums = enums or []
         self.external_inheritance = external_inheritance or []
 
+class JavaInterface:
+    """Represents a Java Interface."""
+    def __init__(self, name: str, package: str, methods: Dict[str, Dict[str, List[str]]]) -> None:
+        self.name = name  # Interface name
+        self.package = package  # Package of the interface
+        self.methods = methods  # Dictionary of methods (name, visibility, return type, parameters)
+
+    def __str__(self) -> str:
+        return f"Interface: {self.name}, Package: {self.package}"
+
 class JavaPackage:
     def __init__(self, package_name: str):
         self.package_name = package_name
         self.classes = []
+        self.interfaces = []
 
     def add_class(self, java_class: 'JavaClass'):
         self.classes.append(java_class)
+    
+    def add_interface(self, java_interface: 'JavaInterface'):
+        self.interfaces.append(java_interface)
 
 class JavaProjectParser:
     def __init__(self, project_path: str):
         self.project_path = project_path
         self.classes: Dict[str, 'JavaClass'] = {}
+        self.interfaces: Dict[str, 'JavaInterface'] = {}
         self.packages: Dict[str, 'JavaPackage'] = {}
 
     def parse(self) -> None:
@@ -78,16 +93,27 @@ class JavaProjectParser:
                     self.packages[package_name] = JavaPackage(package_name)
                 
                 for _, node in tree:
+                    # Check for interface declarations
+                    if isinstance(node, javalang.tree.InterfaceDeclaration):
+                        _, methods = self._extract_members(node)
+                        java_interface = JavaInterface(node.name, package_name, methods)
+
+                        # Add the interface to the package
+                        self.packages[package_name].add_interface(java_interface)
+                        # Store the interface in the main interface dictionary
+                        self.interfaces[java_interface.name] = java_interface
+                    
                     if isinstance(node, javalang.tree.ClassDeclaration):
                         attributes, methods = self._extract_members(node)
                         extends = self._extract_extends(node)
                         implements = self._extract_implements(node)
                         java_class = JavaClass(node.name, package_name, attributes, methods, extends, implements)
-                        
+
                         # Add the class to the package
                         self.packages[package_name].add_class(java_class)
                         # Store the class in the main class dictionary
                         self.classes[java_class.name] = java_class
+
         except (javalang.parser.JavaSyntaxError, FileNotFoundError) as e:
             logging.error(f"Failed to parse {file_path}: {e}")
 
@@ -462,6 +488,19 @@ class PlantUMLGenerator:
                     uml.append(f"  {visibility} {return_type} {method}({parameters})")
                 
                 uml.append(" }")  # End class definition
+            
+            # Generating the interface definitions inside each package
+            for iface in java_package.interfaces:
+                uml.append(f" interface {iface.name} {{")
+                
+                # Adding methods with visibility, return type, and parameters for interfaces
+                for method, signature in iface.methods.items():
+                    visibility = signature.get("visibility", "+")  # Default to public if no visibility
+                    return_type = signature.get("return_type", "void")
+                    parameters = ", ".join(signature.get("parameters", []))
+                    uml.append(f"  {visibility} {return_type} {method}({parameters})")
+                
+                uml.append(" }")  # End interface definition
 
             uml.append(" }")  # End package definition
 
@@ -492,10 +531,14 @@ class PlantUMLGenerator:
                     add_relation(f"{cls.name} <--> {bidir}")
                 for reflexive in cls.reflexive_associations:
                     add_relation(f"{cls.name} -- {reflexive}")
+        
+            # Generating relationships for interfaces
+            # for iface in java_package.interfaces:
+            #     for impl in iface.implemented_by:
+            #         add_relation(f"{impl} <|.. {iface.name}")  # Interface implemented by class
 
         uml.append("@enduml")
         return "\n".join(uml)
-
 
 
 
