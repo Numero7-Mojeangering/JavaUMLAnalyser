@@ -64,6 +64,8 @@ class JavaPackage:
         self.interfaces.append(java_interface)
 
 class JavaProjectParser:
+    FILTER_RELATION_SHIPS = True
+
     def __init__(self, project_path: str):
         self.project_path = project_path
         self.classes: Dict[str, 'JavaClass'] = {}
@@ -143,7 +145,10 @@ class JavaProjectParser:
         self._extract_reflexive_associations(class_node, reflexive_associations)
         self._extract_bidirectional_associations(class_node, associations, bidirectional_associations)
         
-        return self.limit_relationships((associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums, external_inheritance))
+        if JavaProjectParser.FILTER_RELATION_SHIPS:
+            return self.limit_relationships((associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums, external_inheritance))
+        else:
+            return associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums, external_inheritance
 
     def limit_relationships(self, relationships: Tuple[List[str], List[str], List[str], List[str], List[str], List[str], List[str], List[str]], 
                         max_relations_per_mate: int = 1, 
@@ -358,6 +363,24 @@ class JavaProjectParser:
                             field_type = value.type.name
                             if field_type:
                                 compositions.append(field_type)  # Track object creation for compositions
+            
+            # Method declarations (look for object creation inside methods)
+            if isinstance(member, javalang.tree.MethodDeclaration):
+                if member.body:  # Ensure body exists and is iterable
+                    for statement in member.body:
+                        # Look for assignment statements in method body
+                        if isinstance(statement, javalang.tree.StatementExpression) and isinstance(statement.expression, javalang.tree.Assignment):
+                            value = statement.expression.value
+                            if isinstance(value, javalang.tree.ClassCreator):
+                                field_type = value.type.name
+                                if field_type:
+                                    compositions.append(field_type)  # Track object creation for compositions
+
+                        # Check for direct object creation in method body
+                        if isinstance(statement, javalang.tree.StatementExpression) and isinstance(statement.expression, javalang.tree.ClassCreator):
+                            field_type = statement.expression.type.name
+                            if field_type:
+                                compositions.append(field_type)  # Track direct object creation for compositions
 
     def _extract_inheritance_relationships(self, class_node: javalang.tree.ClassDeclaration, external_inheritance: List[str]) -> None:
         if class_node.extends:

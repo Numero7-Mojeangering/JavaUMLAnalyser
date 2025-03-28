@@ -204,8 +204,10 @@ Vecteur2D -- Vecteur2D
 Application <|-- App
 App ..> StackPane
 App ..> Scene
-App -- LeMondeFX
-App -- ClavierPermanent
+App *-- Canvas
+App *-- ClavierPermanent
+App *-- LeMondeFX
+App *-- AnimationTimer
 ObjetDessin <|-- BalleFX
 BalleFX -- Balle
 ObjetDessin <|-- LeMondeFX
