@@ -17,6 +17,8 @@ from plantuml import PlantUML
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
+
+
 class JavaClass:
     def __init__(self, name: str, package: str, attributes: Dict[str, str], methods: Dict[str, Dict[str, List[str]]],
                  extends: Optional[str] = None, implements: Optional[List[str]] = None,
@@ -38,19 +40,29 @@ class JavaClass:
         self.reflexive_associations = reflexive_associations or []
         self.enums = enums or []
         self.external_inheritance = external_inheritance or []
-    
+
+class JavaPackage:
+    def __init__(self, package_name: str):
+        self.package_name = package_name
+        self.classes = []
+
+    def add_class(self, java_class: 'JavaClass'):
+        self.classes.append(java_class)
 
 class JavaProjectParser:
     def __init__(self, project_path: str):
         self.project_path = project_path
         self.classes: Dict[str, 'JavaClass'] = {}
+        self.packages: Dict[str, 'JavaPackage'] = {}
 
     def parse(self) -> None:
+        # Discover classes first
         for root, _, files in os.walk(self.project_path):
             for file in files:
                 if file.endswith(".java"):
                     self._discover_java_class(os.path.join(root, file))
         
+        # Then extract relationships for the discovered classes
         for root, _, files in os.walk(self.project_path):
             for file in files:
                 if file.endswith(".java"):
@@ -60,13 +72,21 @@ class JavaProjectParser:
         try:
             with open(file_path, "r", encoding="utf-8") as file:
                 tree = javalang.parse.parse(file.read())
-                package = self._extract_package(tree)
+                package_name = self._extract_package(tree)
+                # Create or get the package
+                if package_name not in self.packages:
+                    self.packages[package_name] = JavaPackage(package_name)
+                
                 for _, node in tree:
                     if isinstance(node, javalang.tree.ClassDeclaration):
                         attributes, methods = self._extract_members(node)
                         extends = self._extract_extends(node)
                         implements = self._extract_implements(node)
-                        java_class = JavaClass(node.name, package, attributes, methods, extends, implements)
+                        java_class = JavaClass(node.name, package_name, attributes, methods, extends, implements)
+                        
+                        # Add the class to the package
+                        self.packages[package_name].add_class(java_class)
+                        # Store the class in the main class dictionary
                         self.classes[java_class.name] = java_class
         except (javalang.parser.JavaSyntaxError, FileNotFoundError) as e:
             logging.error(f"Failed to parse {file_path}: {e}")
@@ -414,30 +434,36 @@ class JavaProjectParser:
 
 
 class PlantUMLGenerator:
-    """Generates PlantUML code from Java class data."""
-    def __init__(self, classes: Dict[str, JavaClass]):
-        self.classes = classes
+    """Generates PlantUML code from Java class data, grouped by package."""
+    def __init__(self, packages: Dict[str, JavaPackage]):
+        self.packages = packages
 
     def generate(self) -> str:
-        """Generates PlantUML diagram code."""
+        """Generates PlantUML diagram code for all packages and their classes."""
         uml = ["@startuml"]
 
-        # Generating the class definitions
-        for cls in self.classes.values():
-            uml.append(f"class {cls.name} {{")
+        # Generating the package definitions
+        for package_name, java_package in self.packages.items():
+            uml.append(f"package {package_name} {{")
             
-            # Adding attributes with visibility
-            for attr, visibility in cls.attributes.items():
-                uml.append(f" {visibility} {attr}")
-            
-            # Adding methods with visibility, return type, and parameters
-            for method, signature in cls.methods.items():
-                visibility = signature.get("visibility", "+")  # Default to public if no visibility
-                return_type = signature.get("return_type", "void")
-                parameters = ", ".join(signature.get("parameters", []))
-                uml.append(f" {visibility} {return_type} {method}({parameters})")
+            # Generating the class definitions inside each package
+            for cls in java_package.classes:
+                uml.append(f" class {cls.name} {{")
                 
-            uml.append("}")
+                # Adding attributes with visibility
+                for attr, visibility in cls.attributes.items():
+                    uml.append(f"  {visibility} {attr}")
+                
+                # Adding methods with visibility, return type, and parameters
+                for method, signature in cls.methods.items():
+                    visibility = signature.get("visibility", "+")  # Default to public if no visibility
+                    return_type = signature.get("return_type", "void")
+                    parameters = ", ".join(signature.get("parameters", []))
+                    uml.append(f"  {visibility} {return_type} {method}({parameters})")
+                
+                uml.append(" }")  # End class definition
+
+            uml.append(" }")  # End package definition
 
         # Fix to prevent duplicated relations.
         relations: set[str] = set()
@@ -448,26 +474,28 @@ class PlantUMLGenerator:
                 relations.add(relation)
 
         # Generating relationships
-        for cls in self.classes.values():
-            if cls.extends:
-                add_relation(f"{cls.extends} <|-- {cls.name}")
-            for impl in cls.implements:
-                add_relation(f"{impl} <|.. {cls.name}")
-            for assoc in cls.associations:
-                add_relation(f"{cls.name} -- {assoc}")
-            for dep in cls.dependencies:
-                add_relation(f"{cls.name} ..> {dep}")
-            for agg in cls.aggregations:
-                add_relation(f"{cls.name} o-- {agg}")
-            for comp in cls.compositions:
-                add_relation(f"{cls.name} *-- {comp}")
-            for bidir in cls.bidirectional_associations:
-                add_relation(f"{cls.name} <--> {bidir}")
-            for reflexive in cls.reflexive_associations:
-                add_relation(f"{cls.name} -- {reflexive}")
+        for java_package in self.packages.values():
+            for cls in java_package.classes:
+                if cls.extends:
+                    add_relation(f"{cls.extends} <|-- {cls.name}")
+                for impl in cls.implements:
+                    add_relation(f"{impl} <|.. {cls.name}")
+                for assoc in cls.associations:
+                    add_relation(f"{cls.name} -- {assoc}")
+                for dep in cls.dependencies:
+                    add_relation(f"{cls.name} ..> {dep}")
+                for agg in cls.aggregations:
+                    add_relation(f"{cls.name} o-- {agg}")
+                for comp in cls.compositions:
+                    add_relation(f"{cls.name} *-- {comp}")
+                for bidir in cls.bidirectional_associations:
+                    add_relation(f"{cls.name} <--> {bidir}")
+                for reflexive in cls.reflexive_associations:
+                    add_relation(f"{cls.name} -- {reflexive}")
 
         uml.append("@enduml")
         return "\n".join(uml)
+
 
 
 
@@ -549,7 +577,7 @@ def main() -> None:
     parser = JavaProjectParser(project_folder)
     parser.parse()
 
-    generator = PlantUMLGenerator(parser.classes)
+    generator = PlantUMLGenerator(parser.packages)
     plantuml_code = generator.generate()
 
     with open(output_uml, "w", encoding="utf-8") as file:
