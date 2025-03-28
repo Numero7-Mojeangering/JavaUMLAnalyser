@@ -17,6 +17,76 @@ from plantuml import PlantUML
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
+class JavaElement:
+    """Represents a generic Java element (class, interface, enum, primitive)."""
+    
+    elements: Dict[str, 'JavaElement'] = {}  # Tracks all Java elements by their fully qualified name (FQN)
+
+    def __init__(self, name: str, package: str):
+        """
+        :param name: The name of the Java element.
+        :param package: The package where the element belongs.
+        """
+        self.name = name
+        self.package = package
+        self.fqn = f"{package}.{name}"  # Fully Qualified Name (FQN)
+        JavaElement.elements[self.fqn] = self  # Register element uniquely
+
+    @classmethod
+    def find(cls, name: str, package: Optional[str] = None) -> Optional['JavaElement']:
+        """
+        Finds a Java element by name.
+        :param name: The name of the Java element.
+        :param package: (Optional) The package name to refine the search.
+        :return: The found JavaElement or None if not found.
+        """
+        if package:
+            return cls.elements.get(f"{package}.{name}")
+        
+        # Search for all elements with the given name (without package filtering)
+        matches = [elem for fqn, elem in cls.elements.items() if fqn.endswith(f".{name}")]
+        return matches[0] if len(matches) == 1 else None  # Return element if unique, else None
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}: {self.name}, Package: {self.package}"
+
+
+class JavaRelation:
+    """Represents a relationship between two Java elements."""
+    
+    def __init__(self, source: JavaElement, target: JavaElement, relation_type: str):
+        """
+        :param source: The source Java element (class, interface, enum, etc.).
+        :param target: The target Java element (class, interface, enum, etc.).
+        :param relation_type: The type of relationship (e.g., "extends", "implements", 
+                              "dependency", "association", "aggregation", "composition",
+                              "bidirectional", "reflexive", "enum_usage").
+        """
+        self.source = source
+        self.target = target
+        self.relation_type = relation_type
+
+    def __str__(self) -> str:
+        return f"{self.source.fqn} {self._get_uml_symbol()} {self.target.fqn}"
+
+    def _get_uml_symbol(self) -> str:
+        """Returns the appropriate PlantUML symbol for the relation type."""
+        symbols = {
+            "extends": "<|--",
+            "implements": "<|..",
+            "dependency": "..>",
+            "association": "--",
+            "aggregation": "o--",
+            "composition": "*--",
+            "bidirectional": "<-->",
+            "reflexive": "--",
+            "enum_usage": "..|>"
+        }
+        return symbols.get(self.relation_type, "--")  # Default to simple association
+
+    def is_valid(self) -> bool:
+        """Checks if the relationship is valid (both source and target exist)."""
+        return isinstance(self.source, JavaElement) and isinstance(self.target, JavaElement)
 
 
 class JavaClass:
@@ -51,11 +121,23 @@ class JavaInterface:
     def __str__(self) -> str:
         return f"Interface: {self.name}, Package: {self.package}"
 
+class JavaEnum:
+    """Represents a Java Enum."""
+    def __init__(self, name: str, package: str, constants: List[str]) -> None:
+        self.name = name  # Enum name
+        self.package = package  # Package of the enum
+        self.constants = constants  # List of enum constants
+
+    def __str__(self) -> str:
+        return f"Enum: {self.name}, Package: {self.package}, Constants: {', '.join(self.constants)}"
+
+
 class JavaPackage:
     def __init__(self, package_name: str):
         self.package_name = package_name
         self.classes = []
         self.interfaces = []
+        self.enums = []
 
     def add_class(self, java_class: 'JavaClass'):
         self.classes.append(java_class)
@@ -63,12 +145,25 @@ class JavaPackage:
     def add_interface(self, java_interface: 'JavaInterface'):
         self.interfaces.append(java_interface)
 
+    def add_enum(self, java_enum: 'JavaEnum'):
+        self.enums.append(java_enum)
+
+class JavaPrimitive:
+    """Represents a Java primitive type."""
+    def __init__(self, name: str):
+        self.name = name  # The name of the primitive type (e.g., int, double, boolean)
+
+    def __str__(self) -> str:
+        return f"Primitive: {self.name}"
+
+
 class JavaProjectParser:
     FILTER_RELATION_SHIPS = True
 
     def __init__(self, project_path: str):
         self.project_path = project_path
         self.classes: Dict[str, 'JavaClass'] = {}
+        self.enums: Dict[str, 'JavaEnum'] = {}
         self.interfaces: Dict[str, 'JavaInterface'] = {}
         self.packages: Dict[str, 'JavaPackage'] = {}
 
@@ -115,6 +210,15 @@ class JavaProjectParser:
                         self.packages[package_name].add_class(java_class)
                         # Store the class in the main class dictionary
                         self.classes[java_class.name] = java_class
+                    
+                    # Check for enum declarations
+                    if isinstance(node, javalang.tree.EnumDeclaration):
+                        java_enum = JavaEnum(node.name, package_name, node.body.constants)
+
+                        # Add the enum to the package
+                        self.packages[package_name].add_enum(java_enum)
+                        # Store the enum in the main enum dictionary
+                        self.enums[java_enum.name] = java_enum
 
         except (javalang.parser.JavaSyntaxError, FileNotFoundError) as e:
             logging.error(f"Failed to parse {file_path}: {e}")
@@ -587,6 +691,16 @@ class PlantUMLGenerator:
                 
                 uml.append(" }")  # End interface definition
 
+            # Generating the enum definitions inside each package
+            for enum in java_package.enums:
+                uml.append(f" enum {enum.name} {{")
+                
+                # Adding enum constants
+                for constant in enum.constants:
+                    uml.append(f"  {constant}")
+                
+                uml.append(" }")  # End enum definition
+
             uml.append(" }")  # End package definition
 
         # Fix to prevent duplicated relations.
@@ -617,13 +731,10 @@ class PlantUMLGenerator:
                 for reflexive in cls.reflexive_associations:
                     add_relation(f"{cls.name} -- {reflexive}")
         
-            # Generating relationships for interfaces
-            # for iface in java_package.interfaces:
-            #     for impl in iface.implemented_by:
-            #         add_relation(f"{impl} <|.. {iface.name}")  # Interface implemented by class
 
         uml.append("@enduml")
         return "\n".join(uml)
+
 
 
 
