@@ -135,22 +135,84 @@ class JavaProjectParser:
         associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums, external_inheritance = [], [], [], [], [], [], [], []
         
         self._extract_aggregations(class_node, aggregations)
-
         self._extract_compositions(class_node, compositions)
-
         self._extract_dependencies(class_node, dependencies)
-
         self._extract_inheritance_relationships(class_node, external_inheritance)
-
         self._extract_enums(class_node, enums)
-
         self._extract_associations(class_node, associations)
-
         self._extract_reflexive_associations(class_node, reflexive_associations)
-
         self._extract_bidirectional_associations(class_node, associations, bidirectional_associations)
         
-        return associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums, external_inheritance
+        return self.limit_relationships((associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums, external_inheritance))
+
+    def limit_relationships(self, relationships: Tuple[List[str], List[str], List[str], List[str], List[str], List[str], List[str], List[str]], 
+                        max_relations_per_mate: int = 1, 
+                        priority_order: List[str] = None) -> Tuple[List[str], List[str], List[str], List[str], List[str], List[str], List[str], List[str]]:
+        """
+        Limit the number of relationships based on priority order.
+        Select only a certain number of relationships for each type and respects the priority order.
+        """
+        if priority_order is None:
+            priority_order = ['composition', 'aggregation', 'dependency', 'bidirectional_association', 'association', 'reflexive_association', 'enum', 'external_inheritance']
+        
+        # Unpack the provided relationships tuple
+        associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums, external_inheritance = relationships
+
+        # Store relationships for each type in a dictionary for easier access
+        relationships_dict = {
+            'association': associations,
+            'dependency': dependencies,
+            'aggregation': aggregations,
+            'composition': compositions,
+            'bidirectional_association': bidirectional_associations,
+            'reflexive_association': reflexive_associations,
+            'enum': enums,
+            'external_inheritance': external_inheritance
+        }
+
+        # Prepare a dictionary to store selected relationships
+        selected_relationships = {
+            'association': [],
+            'dependency': [],
+            'aggregation': [],
+            'composition': [],
+            'bidirectional_association': [],
+            'reflexive_association': [],
+            'enum': [],
+            'external_inheritance': []
+        }
+
+        # This dictionary will track how many relationships each mate has across all types
+        mate_relationship_count = {}
+
+        # Process each relationship type in priority order
+        for relation_type in priority_order:
+            # Get the relationship list for this type
+            relation_list = relationships_dict[relation_type]
+            
+            # Process each relationship for this type
+            for relationship in relation_list:
+                mate_class = relationship  # The class related to the current class
+                
+                if mate_class not in mate_relationship_count:
+                    mate_relationship_count[mate_class] = 0  # Initialize count if not already set
+
+                # If the mate still has space for more relationships, and it has not yet reached the max limit
+                if mate_relationship_count[mate_class] < max_relations_per_mate:
+                    selected_relationships[relation_type].append(relationship)
+                    mate_relationship_count[mate_class] += 1  # Increase the count for this mate
+
+        # Unpack the selected relationships into the return tuple
+        return (
+            selected_relationships['association'],
+            selected_relationships['dependency'],
+            selected_relationships['aggregation'],
+            selected_relationships['composition'],
+            selected_relationships['bidirectional_association'],
+            selected_relationships['reflexive_association'],
+            selected_relationships['enum'],
+            selected_relationships['external_inheritance']
+        )
 
     def _extract_package(self, tree: javalang.tree.CompilationUnit) -> str:
         for _, node in tree:
@@ -519,14 +581,14 @@ class PlantUMLGenerator:
                     add_relation(f"{cls.extends} <|-- {cls.name}")
                 for impl in cls.implements:
                     add_relation(f"{impl} <|.. {cls.name}")
-                for assoc in cls.associations:
-                    add_relation(f"{cls.name} -- {assoc}")
                 for dep in cls.dependencies:
                     add_relation(f"{cls.name} ..> {dep}")
                 for agg in cls.aggregations:
                     add_relation(f"{cls.name} o-- {agg}")
                 for comp in cls.compositions:
                     add_relation(f"{cls.name} *-- {comp}")
+                for assoc in cls.associations:
+                    add_relation(f"{cls.name} -- {assoc}")
                 for bidir in cls.bidirectional_associations:
                     add_relation(f"{cls.name} <--> {bidir}")
                 for reflexive in cls.reflexive_associations:
