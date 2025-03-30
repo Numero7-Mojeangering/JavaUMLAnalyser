@@ -17,20 +17,30 @@ from plantuml import PlantUML
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
+
 class JavaElement:
     """Represents a generic Java element (class, interface, enum, primitive)."""
     
     elements: Dict[str, 'JavaElement'] = {}  # Tracks all Java elements by their fully qualified name (FQN)
 
-    def __init__(self, name: str, package: str):
+    def __init__(self, name: str, package: 'JavaPackage', visibility: Optional['JavaVisibility'] = None):
         """
         :param name: The name of the Java element.
-        :param package: The package where the element belongs.
+        :param package: The JavaPackage object where the element belongs.
+        :param visibility: (Optional) The visibility of the element. Defaults to public.
         """
         self.name = name
         self.package = package
-        self.fqn = f"{package}.{name}"  # Fully Qualified Name (FQN)
+        self.relations: list['JavaRelation'] = []
+        self.fqn = f"{package.package_name}.{name}"  # Fully Qualified Name (FQN)
+        self.visibility = visibility or JavaVisibility(JavaVisibility.PUBLIC)  # Default visibility is public
         JavaElement.elements[self.fqn] = self  # Register element uniquely
+
+    @classmethod
+    def add_relation(self, relation: 'JavaRelation'):
+        """Adds a relationship to the element."""
+        if relation.is_valid():
+            self.relations.append(relation)
 
     @classmethod
     def find(cls, name: str, package: Optional[str] = None) -> Optional['JavaElement']:
@@ -48,113 +58,317 @@ class JavaElement:
         return matches[0] if len(matches) == 1 else None  # Return element if unique, else None
 
     def __str__(self) -> str:
-        return f"{self.__class__.__name__}: {self.name}, Package: {self.package}"
+        return f"{self.__class__.__name__}: {self.name}, Package: {self.package.package_name}, Visibility: {self.visibility}"
+
+
+class JavaRelationType:
+    """Represents different types of relationships between Java elements."""
+
+    # Defining constants for different types of relations
+    EXTENDS = "extends"
+    IMPLEMENTS = "implements"
+    DEPENDENCY = "dependency"
+    ASSOCIATION = "association"
+    AGGREGATION = "aggregation"
+    COMPOSITION = "composition"
+    BIDIRECTIONAL = "bidirectional"
+    REFLEXIVE = "reflexive"
+    ENUM_USAGE = "enum_usage"
+
+    @classmethod
+    def is_valid_relation(cls, relation_type: str) -> bool:
+        """Checks if the provided relation type is valid."""
+        return relation_type in {
+            cls.EXTENDS, cls.IMPLEMENTS, cls.DEPENDENCY, cls.ASSOCIATION,
+            cls.AGGREGATION, cls.COMPOSITION, cls.BIDIRECTIONAL, cls.REFLEXIVE, cls.ENUM_USAGE
+        }
+
+    @classmethod
+    def get_all_relation_types(cls):
+        """Returns a list of all valid relation types."""
+        return [
+            cls.EXTENDS, cls.IMPLEMENTS, cls.DEPENDENCY, cls.ASSOCIATION,
+            cls.AGGREGATION, cls.COMPOSITION, cls.BIDIRECTIONAL, cls.REFLEXIVE, cls.ENUM_USAGE
+        ]
+    
+    @classmethod
+    def get_uml_symbol(cls, relation_type: str) -> str:
+        """Returns the appropriate PlantUML symbol for the given relation type."""
+        relation_symbols = {
+            cls.EXTENDS: "<|--",
+            cls.IMPLEMENTS: "<|..",
+            cls.DEPENDENCY: "..>",
+            cls.ASSOCIATION: "--",
+            cls.AGGREGATION: "o--",
+            cls.COMPOSITION: "*--",
+            cls.BIDIRECTIONAL: "<-->",
+            cls.REFLEXIVE: "--",
+            cls.ENUM_USAGE: "..|>"
+        }
+        return relation_symbols.get(relation_type, "--")  # Default to simple association if type is not found
 
 
 class JavaRelation:
     """Represents a relationship between two Java elements."""
     
+    # Class-level list to store all created relations
+    all_relations: List['JavaRelation'] = []
+
     def __init__(self, source: JavaElement, target: JavaElement, relation_type: str):
         """
         :param source: The source Java element (class, interface, enum, etc.).
         :param target: The target Java element (class, interface, enum, etc.).
-        :param relation_type: The type of relationship (e.g., "extends", "implements", 
-                              "dependency", "association", "aggregation", "composition",
-                              "bidirectional", "reflexive", "enum_usage").
+        :param relation_type: The type of relationship.
         """
         self.source = source
         self.target = target
         self.relation_type = relation_type
 
+        # Add the created relation to the class-level list
+        JavaRelation.all_relations.append(self)
+
     def __str__(self) -> str:
         return f"{self.source.fqn} {self._get_uml_symbol()} {self.target.fqn}"
-
-    def _get_uml_symbol(self) -> str:
-        """Returns the appropriate PlantUML symbol for the relation type."""
-        symbols = {
-            "extends": "<|--",
-            "implements": "<|..",
-            "dependency": "..>",
-            "association": "--",
-            "aggregation": "o--",
-            "composition": "*--",
-            "bidirectional": "<-->",
-            "reflexive": "--",
-            "enum_usage": "..|>"
-        }
-        return symbols.get(self.relation_type, "--")  # Default to simple association
 
     def is_valid(self) -> bool:
         """Checks if the relationship is valid (both source and target exist)."""
         return isinstance(self.source, JavaElement) and isinstance(self.target, JavaElement)
 
+    @classmethod
+    def get_all_relations(cls) -> List['JavaRelation']:
+        """Returns all created relations."""
+        return cls.all_relations
 
-class JavaClass:
-    def __init__(self, name: str, package: str, attributes: Dict[str, str], methods: Dict[str, Dict[str, List[str]]],
-                 extends: Optional[str] = None, implements: Optional[List[str]] = None,
-                 associations: Optional[List[str]] = None, dependencies: Optional[List[str]] = None,
-                 aggregations: Optional[List[str]] = None, compositions: Optional[List[str]] = None,
-                 bidirectional_associations: Optional[List[str]] = None, reflexive_associations: Optional[List[str]] = None,
-                 enums: Optional[List[str]] = None, external_inheritance: Optional[List[str]] = None):
+
+class JavaVisibility:
+    """Represents the visibility of a Java element."""
+    
+    PUBLIC = "public"
+    PRIVATE = "private"
+    PROTECTED = "protected"
+    PACKAGE = "package"
+    
+    def __init__(self, visibility: str = PUBLIC):
+        """
+        :param visibility: The visibility level
+        """
+        if visibility not in {self.PUBLIC, self.PRIVATE, self.PROTECTED, self.PACKAGE}:
+            raise ValueError(f"Invalid visibility: {visibility}")
+        self.visibility = visibility
+    
+    def __str__(self) -> str:
+        """Returns the visibility level as a string."""
+        return self.visibility
+    
+    def is_public(self) -> bool:
+        """Checks if the visibility is public."""
+        return self.visibility == self.PUBLIC
+    
+    def is_private(self) -> bool:
+        """Checks if the visibility is private."""
+        return self.visibility == self.PRIVATE
+    
+    def is_protected(self) -> bool:
+        """Checks if the visibility is protected."""
+        return self.visibility == self.PROTECTED
+    
+    def is_package(self) -> bool:
+        """Checks if the visibility is package."""
+        return self.visibility == self.PACKAGE
+
+
+class JavaMethod:
+    """Represents a method in a Java class."""
+
+    def __init__(self, name: str, visibility: 'JavaVisibility', return_type: 'JavaType', parameters: List['JavaType']):
+        """
+        :param name: The name of the method.
+        :param visibility: The visibility of the method (JavaVisibility).
+        :param return_type: The return type of the method (JavaType).
+        :param parameters: List of parameter types for the method (List of JavaType).
+        """
         self.name = name
-        self.package = package
-        self.attributes = attributes
-        self.methods = methods
-        self.extends = extends
-        self.implements = implements or []
-        self.associations = associations or []
-        self.dependencies = dependencies or []
-        self.aggregations = aggregations or []
-        self.compositions = compositions or []
-        self.bidirectional_associations = bidirectional_associations or []
-        self.reflexive_associations = reflexive_associations or []
-        self.enums = enums or []
-        self.external_inheritance = external_inheritance or []
+        self.visibility = visibility
+        self.return_type = return_type
+        self.parameters = parameters
 
-class JavaInterface:
+    def __str__(self) -> str:
+        """String representation of the Java method."""
+        params = ", ".join(str(param) for param in self.parameters)
+        return f"{self.visibility} {self.return_type} {self.name}({params})"
+
+
+class JavaAttribute:
+    """Represents a Java attribute (field) in a class."""
+    
+    def __init__(self, name: str, attribute_type: str, visibility: JavaVisibility, 
+                 is_static: bool = False, is_final: bool = False, 
+                 is_transient: bool = False, is_volatile: bool = False) -> None:
+        """
+        :param name: The name of the attribute (field).
+        :param attribute_type: The type of the attribute (e.g., int, String).
+        :param visibility: The visibility of the attribute (JavaVisibility).
+        :param is_static: Whether the attribute is static.
+        :param is_final: Whether the attribute is final (constant).
+        :param is_transient: Whether the attribute is transient (not serialized).
+        :param is_volatile: Whether the attribute is volatile (for thread safety).
+        """
+        self.name = name
+        self.attribute_type = attribute_type
+        self.visibility = visibility  # Instance of JavaVisibility
+        self.is_static = is_static
+        self.is_final = is_final
+        self.is_transient = is_transient
+        self.is_volatile = is_volatile
+
+    def __str__(self) -> str:
+        """Returns a string representation of the Java attribute."""
+        modifiers = []
+        
+        # Add visibility modifier
+        modifiers.append(str(self.visibility))
+        
+        # Add static, final, transient, volatile modifiers if applicable
+        if self.is_static:
+            modifiers.append("static")
+        if self.is_final:
+            modifiers.append("final")
+        if self.is_transient:
+            modifiers.append("transient")
+        if self.is_volatile:
+            modifiers.append("volatile")
+        
+        # Join modifiers with spaces and return the full attribute declaration
+        modifier_str = " ".join(modifiers)
+        return f"{modifier_str} {self.attribute_type} {self.name}"
+
+class JavaType:
+    """Represents a Java type, which could be a primitive type or a Java class."""
+    
+    PRIMITIVE_TYPES = {"int", "boolean", "char", "byte", "short", "long", "float", "double", "void"}
+
+    def __init__(self, java_class: Optional['JavaClass'] = None, primitive_type: Optional[str] = None):
+        """
+        :param java_class: The JavaClass object if the type is a class (optional).
+        :param primitive_type: The primitive type name (e.g., "int") if it's a primitive (optional).
+        """
+        if java_class:
+            self.java_class = java_class  # Store the JavaClass if it's a class type
+            self.primitive_type = None
+            self.is_primitive = False
+        elif primitive_type and primitive_type in self.PRIMITIVE_TYPES:
+            self.java_class = None
+            self.primitive_type = primitive_type  # Store the primitive type
+            self.is_primitive = True
+        else:
+            raise ValueError("Must provide either a valid Java class or a primitive type.")
+
+    def get_type(self):
+        """Returns the type of the Java type, either class or primitive."""
+        if self.is_primitive:
+            return self.primitive_type
+        elif self.java_class:
+            return self.java_class
+        else:
+            return None
+
+    def __str__(self) -> str:
+        """Returns the string representation of the Java type."""
+        if self.is_primitive:
+            return self.primitive_type  # Return primitive type as is (e.g., "int")
+        elif self.java_class:
+            return f"{self.java_class.package.package_name}.{self.java_class.name}"  # Fully qualified class name
+        return ""
+    
+    def is_class(self) -> bool:
+        """Returns True if the type is a class."""
+        return not self.is_primitive
+    
+    def is_primitive_type(self) -> bool:
+        """Returns True if the type is primitive."""
+        return self.is_primitive
+
+
+class JavaClass(JavaElement):
+    """Represents a Java class, inheriting from JavaElement, and tracks its relationships with other Java elements."""
+    
+    def __init__(self, name: str, package: 'JavaPackage', attributes: Dict[str, str], methods: List['JavaMethod'],
+                 extends: Optional['JavaClass'] = None, interfaces: Optional[List['JavaInterface']] = None):
+        """
+        :param name: The name of the class.
+        :param package: The package where the class belongs.
+        :param attributes: Dictionary of attributes (name, visibility).
+        :param methods: List of JavaMethod objects associated with this class.
+        :param extends: The class this class extends, if any (JavaClass object).
+        :param interfaces: A list of JavaInterface objects associated with this class.
+        :param relations: A list of relationships (JavaRelation objects) associated with this class.
+        """
+        super().__init__(name, package)
+        self.attributes = attributes  # Attributes of the class
+        self.methods = methods  # List of JavaMethod instances representing methods
+        self.extends = extends  # JavaClass object that this class extends (or None if it does not extend anything)
+        self.interfaces = interfaces or []  # List of JavaInterface instances associated with this class
+    
+    def __str__(self) -> str:
+        extends_name = self.extends.name if self.extends else "None"
+        return f"Class: {self.name}, Package: {self.package}, Extends: {extends_name}, Relations: {len(self.relations)}, Interfaces: {len(self.interfaces)}"
+
+
+class JavaInterface(JavaElement):
     """Represents a Java Interface."""
-    def __init__(self, name: str, package: str, methods: Dict[str, Dict[str, List[str]]]) -> None:
-        self.name = name  # Interface name
-        self.package = package  # Package of the interface
+    def __init__(self, name: str, package: 'JavaPackage', methods: list[JavaMethod]) -> None:
+        super().__init__(name, package)
         self.methods = methods  # Dictionary of methods (name, visibility, return type, parameters)
 
     def __str__(self) -> str:
         return f"Interface: {self.name}, Package: {self.package}"
 
-class JavaEnum:
+class JavaEnum(JavaElement):
     """Represents a Java Enum."""
-    def __init__(self, name: str, package: str, constants: List[str]) -> None:
-        self.name = name  # Enum name
-        self.package = package  # Package of the enum
+    def __init__(self, name: str, package: 'JavaPackage', constants: List[str]) -> None:
+        super().__init__(name, package)
         self.constants = constants  # List of enum constants
 
     def __str__(self) -> str:
         return f"Enum: {self.name}, Package: {self.package}, Constants: {', '.join(self.constants)}"
 
-
 class JavaPackage:
+    # Class-level dictionary to store all created packages
+    packages: Dict[str, 'JavaPackage'] = {}
+
     def __init__(self, package_name: str):
         self.package_name = package_name
-        self.classes = []
-        self.interfaces = []
-        self.enums = []
+        self.classes: list['JavaClass'] = []
+        self.interfaces: list['JavaInterface'] = []
+        self.enums: list['JavaEnum'] = []
+        # Register the package by its name
+        JavaPackage.packages[package_name] = self
 
     def add_class(self, java_class: 'JavaClass'):
+        """Adds a JavaClass to the package."""
         self.classes.append(java_class)
     
     def add_interface(self, java_interface: 'JavaInterface'):
+        """Adds a JavaInterface to the package."""
         self.interfaces.append(java_interface)
 
     def add_enum(self, java_enum: 'JavaEnum'):
+        """Adds a JavaEnum to the package."""
         self.enums.append(java_enum)
 
-class JavaPrimitive:
-    """Represents a Java primitive type."""
-    def __init__(self, name: str):
-        self.name = name  # The name of the primitive type (e.g., int, double, boolean)
+    @classmethod
+    def find(cls, package_name: str) -> Optional['JavaPackage']:
+        """
+        Finds a JavaPackage by name.
+        :param package_name: The name of the Java package.
+        :return: The found JavaPackage instance or None if not found.
+        """
+        return cls.packages.get(package_name)
 
     def __str__(self) -> str:
-        return f"Primitive: {self.name}"
+        """String representation of the package."""
+        return f"Package: {self.package_name}, Classes: {len(self.classes)}, Interfaces: {len(self.interfaces)}, Enums: {len(self.enums)}"
+
 
 
 class JavaProjectParser:
@@ -162,17 +376,13 @@ class JavaProjectParser:
 
     def __init__(self, project_path: str):
         self.project_path = project_path
-        self.classes: Dict[str, 'JavaClass'] = {}
-        self.enums: Dict[str, 'JavaEnum'] = {}
-        self.interfaces: Dict[str, 'JavaInterface'] = {}
-        self.packages: Dict[str, 'JavaPackage'] = {}
 
     def parse(self) -> None:
         # Discover classes first
         for root, _, files in os.walk(self.project_path):
             for file in files:
                 if file.endswith(".java"):
-                    self._discover_java_class(os.path.join(root, file))
+                    self._discover_java_elements(os.path.join(root, file))
         
         # Then extract relationships for the discovered classes
         for root, _, files in os.walk(self.project_path):
@@ -180,45 +390,35 @@ class JavaProjectParser:
                 if file.endswith(".java"):
                     self._extract_relationships_from_file(os.path.join(root, file))
 
-    def _discover_java_class(self, file_path: str) -> None:
+    def _discover_java_elements(self, file_path: str) -> None:
         try:
             with open(file_path, "r", encoding="utf-8") as file:
                 tree = javalang.parse.parse(file.read())
                 package_name = self._extract_package(tree)
                 # Create or get the package
-                if package_name not in self.packages:
-                    self.packages[package_name] = JavaPackage(package_name)
-                
+                package = JavaPackage.find(package_name) or JavaPackage(package_name)
+
                 for _, node in tree:
                     # Check for interface declarations
                     if isinstance(node, javalang.tree.InterfaceDeclaration):
-                        _, methods = self._extract_members(node)
-                        java_interface = JavaInterface(node.name, package_name, methods)
+                        methods = self._extract_members(node)
+                        java_interface = JavaInterface(node.name, package, methods)
+                        package.add_interface(java_interface)
 
-                        # Add the interface to the package
-                        self.packages[package_name].add_interface(java_interface)
-                        # Store the interface in the main interface dictionary
-                        self.interfaces[java_interface.name] = java_interface
-                    
+                    # Check for class declarations
                     if isinstance(node, javalang.tree.ClassDeclaration):
                         attributes, methods = self._extract_members(node)
                         extends = self._extract_extends(node)
-                        implements = self._extract_implements(node)
-                        java_class = JavaClass(node.name, package_name, attributes, methods, extends, implements)
+                        interfaces = self._extract_implements(node)
 
-                        # Add the class to the package
-                        self.packages[package_name].add_class(java_class)
-                        # Store the class in the main class dictionary
-                        self.classes[java_class.name] = java_class
-                    
+                        java_class = JavaClass(node.name, package, attributes, methods, extends, interfaces)
+                        package.add_class(java_class)
+
                     # Check for enum declarations
                     if isinstance(node, javalang.tree.EnumDeclaration):
-                        java_enum = JavaEnum(node.name, package_name, node.body.constants)
-
-                        # Add the enum to the package
-                        self.packages[package_name].add_enum(java_enum)
-                        # Store the enum in the main enum dictionary
-                        self.enums[java_enum.name] = java_enum
+                        constants = [const.name for const in node.constants]
+                        java_enum = JavaEnum(node.name, package, constants)
+                        package.add_enum(java_enum)
 
         except (javalang.parser.JavaSyntaxError, FileNotFoundError) as e:
             logging.error(f"Failed to parse {file_path}: {e}")
@@ -227,69 +427,70 @@ class JavaProjectParser:
         try:
             with open(file_path, "r", encoding="utf-8") as file:
                 tree = javalang.parse.parse(file.read())
+                
                 for _, node in tree:
-                    if isinstance(node, javalang.tree.ClassDeclaration) and node.name in self.classes:
-                        java_class = self.classes[node.name]
-                        (java_class.associations, java_class.dependencies, java_class.aggregations, 
-                         java_class.compositions, java_class.bidirectional_associations, 
-                         java_class.reflexive_associations, java_class.enums, 
-                         java_class.external_inheritance) = self._extract_relationships(node)
+                    if isinstance(node, javalang.tree.ClassDeclaration):
+                        # Find the Java class for this class declaration
+                        package_name = self._extract_package(tree)  # Extract the package name
+                        package = JavaPackage.find(package_name)  # Get the package object
+                        
+                        # Ensure the package exists
+                        if package:
+                            java_class = next((cls for cls in package.classes if cls.name == node.name), None)
+                            
+                            if java_class:
+                                # Extract relationships for the class
+                                relationships = self._extract_relationships(node)
+                                
+                                # Assign the relationships to the JavaClass object
+                                for relation in relationships:
+                                    # Create JavaRelation objects for each relationship and add them
+                                    relation_type = relation['type']
+                                    target = relation['target']
+                                    relation_object = JavaRelation(java_class, target, relation_type)
+                                    java_class.add_relation(relation_object)
+
         except (javalang.parser.JavaSyntaxError, FileNotFoundError) as e:
             logging.error(f"Failed to parse {file_path}: {e}")
 
-    def _extract_relationships(self, class_node: javalang.tree.ClassDeclaration) -> Tuple[List[str], List[str], List[str], List[str], List[str], List[str], List[str], List[str]]:
-        associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums, external_inheritance = [], [], [], [], [], [], [], []
+    def _extract_relationships(self, class_node: javalang.tree.ClassDeclaration) -> list[JavaRelation]:
+        relations: list[JavaRelation]
         
-        self._extract_aggregations(class_node, aggregations)
-        self._extract_compositions(class_node, compositions)
-        self._extract_dependencies(class_node, dependencies)
-        self._extract_inheritance_relationships(class_node, external_inheritance)
-        self._extract_enums(class_node, enums)
-        self._extract_associations(class_node, associations)
-        self._extract_reflexive_associations(class_node, reflexive_associations)
-        self._extract_bidirectional_associations(class_node, associations, bidirectional_associations)
+        self._extract_aggregations(class_node, relations)
+        self._extract_compositions(class_node, relations)
+        self._extract_dependencies(class_node, relations)
+        self._extract_inheritance_relationships(class_node, relations)
+        self._extract_enums(class_node, relations)
+        self._extract_associations(class_node, relations)
+        self._extract_reflexive_associations(class_node, relations)
+        self._extract_bidirectional_associations(class_node, relations)
         
         if JavaProjectParser.FILTER_RELATION_SHIPS:
-            return self.limit_relationships((associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums, external_inheritance))
+            return self.limit_relationships(relations)
         else:
-            return associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums, external_inheritance
+            return relations
 
-    def limit_relationships(self, relationships: Tuple[List[str], List[str], List[str], List[str], List[str], List[str], List[str], List[str]], 
+    def limit_relationships(self, relationships: list[JavaRelation], 
                         max_relations_per_mate: int = 1, 
-                        priority_order: List[str] = None) -> Tuple[List[str], List[str], List[str], List[str], List[str], List[str], List[str], List[str]]:
+                        priority_order: List[str] = None) -> list[JavaRelation]:
         """
         Limit the number of relationships based on priority order.
         Select only a certain number of relationships for each type and respects the priority order.
         """
         if priority_order is None:
-            priority_order = ['composition', 'aggregation', 'dependency', 'bidirectional_association', 'association', 'reflexive_association', 'enum', 'external_inheritance']
-        
-        # Unpack the provided relationships tuple
-        associations, dependencies, aggregations, compositions, bidirectional_associations, reflexive_associations, enums, external_inheritance = relationships
-
-        # Store relationships for each type in a dictionary for easier access
-        relationships_dict = {
-            'association': associations,
-            'dependency': dependencies,
-            'aggregation': aggregations,
-            'composition': compositions,
-            'bidirectional_association': bidirectional_associations,
-            'reflexive_association': reflexive_associations,
-            'enum': enums,
-            'external_inheritance': external_inheritance
-        }
+            priority_order = [
+                JavaRelationType.EXTENDS,
+                JavaRelationType.COMPOSITION,
+                JavaRelationType.AGGREGATION,
+                JavaRelationType.DEPENDENCY,
+                JavaRelationType.BIDIRECTIONAL,
+                JavaRelationType.ASSOCIATION,
+                JavaRelationType.REFLEXIVE,
+                JavaRelationType.ENUM_USAGE
+            ]
 
         # Prepare a dictionary to store selected relationships
-        selected_relationships = {
-            'association': [],
-            'dependency': [],
-            'aggregation': [],
-            'composition': [],
-            'bidirectional_association': [],
-            'reflexive_association': [],
-            'enum': [],
-            'external_inheritance': []
-        }
+        selected_relationships: list[JavaRelation] = []
 
         # This dictionary will track how many relationships each mate has across all types
         mate_relationship_count = {}
@@ -297,11 +498,11 @@ class JavaProjectParser:
         # Process each relationship type in priority order
         for relation_type in priority_order:
             # Get the relationship list for this type
-            relation_list = relationships_dict[relation_type]
+            relation_list = [relationship for relationship in relationships if relationship.relation_type == relation_type]
             
             # Process each relationship for this type
             for relationship in relation_list:
-                mate_class = relationship  # The class related to the current class
+                mate_class = relationship.target.fqn  # The class related to the current class
                 
                 if mate_class not in mate_relationship_count:
                     mate_relationship_count[mate_class] = 0  # Initialize count if not already set
@@ -312,16 +513,7 @@ class JavaProjectParser:
                     mate_relationship_count[mate_class] += 1  # Increase the count for this mate
 
         # Unpack the selected relationships into the return tuple
-        return (
-            selected_relationships['association'],
-            selected_relationships['dependency'],
-            selected_relationships['aggregation'],
-            selected_relationships['composition'],
-            selected_relationships['bidirectional_association'],
-            selected_relationships['reflexive_association'],
-            selected_relationships['enum'],
-            selected_relationships['external_inheritance']
-        )
+        return selected_relationships
 
     def _extract_package(self, tree: javalang.tree.CompilationUnit) -> str:
         for _, node in tree:
@@ -376,38 +568,6 @@ class JavaProjectParser:
     def _extract_implements(self, class_node: javalang.tree.ClassDeclaration) -> List[str]:
         """ Extracts the interfaces the class implements. """
         return [iface.name for iface in class_node.implements] if class_node.implements else []
-
-    def _extract_field_relationships(self, class_node: javalang.tree.ClassDeclaration, associations: List[str], aggregations: List[str], compositions: List[str], reflexive_associations: List[str], enums: List[str]) -> None:
-        for member in class_node.body:
-            if isinstance(member, javalang.tree.FieldDeclaration):
-                field_type = member.type.name if hasattr(member.type, 'name') else None
-
-                if field_type and field_type.strip():
-                    # Handle generic collections (e.g., List<SomeType>)
-                    if hasattr(member.type, 'arguments') and member.type.arguments:
-                        for argument in member.type.arguments:
-                            inner_type = argument.type.name if hasattr(argument.type, 'name') else None
-                            if inner_type in self.classes:
-                                associations.append(inner_type)  # Add inner types as associations
-                            if inner_type:
-                                aggregations.append(inner_type)  # Track aggregations as well
-
-                    # Check for direct class references (associations)
-                    if field_type in self.classes:
-                        associations.append(field_type)
-
-                    # Check for compositions if the field is created using an initializer expression
-                    for declarator in member.declarators:
-                        if declarator.initializer and isinstance(declarator.initializer, javalang.tree.ClassCreator):
-                            compositions.append(field_type)
-
-                    # Reflexive association (class referencing itself)
-                    if field_type == class_node.name:
-                        reflexive_associations.append(field_type)
-
-                    # Check for enums (uppercase field type is a heuristic, but could be improved)
-                    if field_type and field_type.isupper():  # Better to explicitly check if field is an enum
-                        enums.append(field_type)
 
     def _extract_constructor_relationships(self, class_node: javalang.tree.ClassDeclaration, compositions: List[str]) -> None:
         for member in class_node.body:
