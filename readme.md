@@ -1,5 +1,5 @@
 # Status
-This project is currently in developpement and is not ready for production.
+This project is currently in development and is not ready for production.
 
 # How to Use the Java Project Parser and PlantUML Diagram Generator
 
